@@ -82,12 +82,15 @@ p = sensor.pressure()
 p_prev = p
 p0 = p
 p_cycle_start = p
+temperature = sensor.temperature()
 inspi_end = False
 inspi_duration_estim = inspi_duration
 expi_duration_estim = expi_duration
 cycle_duration_estim = cycle_duration
 
 pwm_ns = pwm_ns_min
+
+file = open('data.csv', 'a')
 
 fig = figure('Pressure')
 #clf()
@@ -97,8 +100,11 @@ scaley = 1.5*p_delta_max
 offsetx = -scalex
 offsety = p0
 
+# Divisions by 0...
+
 # Should check p behavior (too high, too low, should compute p_delta_meas_min,
 # p_delta_meas_max)...
+count = 0
 while True:
 
     #pwm_ns =
@@ -137,13 +143,19 @@ while True:
     buz_pwm.ChangeFrequency(math.trunc(pwm_ns/1000.0))
     led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (t-t_cycle_start)/cycle_duration_estim)))))
     
+    line = '{};{};{}\n'
+    file.write(line.format(t, p, temperature))
+    file.flush()
+
+    if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
+        clf()
     axis([-scalex+offsetx,scalex+offsetx,-scaley+offsety,scaley+offsety])
     plot([t_prev-t0,t-t0], [p_prev,p], 'b')
-    pause(0.001)
+    pause(0.000001)
     offsetx = offsetx+t-t_prev
  
-    if sensor.read():
-        print('P: %0.1f mbar \tT: %0.2f C ') % (sensor.pressure(), sensor.temperature()) 
+    if sensor.read(ms5837.OSR_256):
+        print('t-t0: %0.2f s \tdt: %0.2f s \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p, temperature) 
     else:
         print('Sensor read failed!')
         exit(1)
@@ -152,7 +164,9 @@ while True:
     t = timer()
     p_prev = p
     p = sensor.pressure()
+    temperature = sensor.temperature()
     if (t-t_cycle_start > cycle_duration_estim):
         t_cycle_start = t
         p_cycle_start = p
         inspi_end = False
+    count = count+1
