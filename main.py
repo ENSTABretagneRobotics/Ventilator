@@ -27,11 +27,13 @@ from matplotlib.pyplot import *
 p_delta_max = 20 # In mbar
 p_delta_danger_max = 25 # In mbar
 p_delta_danger_min = -5 # In mbar
-breath_freq = 30 # In cycles/min
+breath_freq = 15 # In cycles/min
 inspi_ratio = 1.0/3.0
 #trim PWM value start, end depending on balloon size...
-pwm_ns_min = 1000000
-pwm_ns_max = 2000000
+pwm0_ns_min = 1000000
+pwm0_ns_max = 1500000
+pwm1_ns_min = 1500000
+pwm1_ns_max = 2000000
 ###############################################################################
 
 # Software PWM init (for buzzer and status LED)
@@ -51,8 +53,8 @@ os.system('echo 0 > /sys/class/pwm/pwmchip0/export')
 os.system('echo 1 > /sys/class/pwm/pwmchip0/export')
 os.system('echo 20000000 > /sys/class/pwm/pwmchip0/pwm0/period')
 os.system('echo 20000000 > /sys/class/pwm/pwmchip0/pwm1/period')
-os.system('echo 1000000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle')
-os.system('echo 1000000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle')
+os.system('echo 1500000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle')
+os.system('echo 1500000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle')
 os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
 os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
 
@@ -88,7 +90,8 @@ inspi_duration_estim = inspi_duration
 expi_duration_estim = expi_duration
 cycle_duration_estim = cycle_duration
 
-pwm_ns = pwm_ns_min
+pwm0_ns = pwm0_ns_max
+pwm1_ns = pwm1_ns_min
 
 file = open('data.csv', 'a')
 
@@ -96,7 +99,7 @@ fig = figure('Pressure')
 #clf()
 #axis('square')
 scalex = 10
-scaley = 1.5*p_delta_max
+scaley = 2
 offsetx = -scalex
 offsety = p0
 
@@ -107,54 +110,36 @@ offsety = p0
 count = 0
 while True:
 
-    #pwm_ns =
-    #1000000*(1.5-0.5*math.cos(2*math.pi*(t-t_cycle_start)/cycle_duration_estim))
-
-    # Should check bounds of pwm...
     if (t-t_cycle_start < inspi_duration_estim):
-        pwm_ns = pwm_ns_min+(pwm_ns_max-pwm_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
     else:
-        pwm_ns = pwm_ns_max-(pwm_ns_max-pwm_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
-    pwm_ns = min(pwm_ns_max, max(pwm_ns_min, pwm_ns))
-
-    #if (p-p_cycle_start < p_delta_max) and !inspi_end:
-    #    pwm_ns = 1000000*(1+(t-t_cycle_start)/inspi_duration_estim)
-    #    if (t-t_cycle_start > inspi_duration_estim):
-    #        print('!!!  WARNING !!!')
-    #        inspi_end = True
-    #        inspi_duration_estim = inspi_duration
-    #        expi_duration_estim = expi_duration
-    #        cycle_duration_estim = cycle_duration
-    #else:
-    #    if (!inspi_end):
-    #       inspi_end = True
-    #       inspi_duration_estim = t-t_cycle_start
-    #       expi_duration_estim = (1-inspi_ratio)*inspi_duration_estim
-    #       cycle_duration_estim = inspi_duration_estim+expi_duration_estim
-    #    pwm_ns = 1000000*(1-(t-t_cycle_start)/expi_duration_estim)
+        pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+    pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
+    pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
 
     pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
     pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
-    os.system(pwm0_cmd.format(math.trunc(pwm_ns)))
-    os.system(pwm1_cmd.format(math.trunc(pwm_ns)))
-    #print(pwm_ns)
+    os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
+    os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
 
     # Test...
-    buz_pwm.ChangeFrequency(math.trunc(pwm_ns/1000.0))
-    led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (t-t_cycle_start)/cycle_duration_estim)))))
+    buz_pwm.ChangeFrequency(math.trunc(pwm1_ns/1000.0))
+    led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (pwm1_ns-pwm1_ns_min)/(pwm1_ns_max-pwm1_ns_min))))))
     
     line = '{};{};{}\n'
     file.write(line.format(t, p, temperature))
     file.flush()
 
-    if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
-        clf()
-    axis([-scalex+offsetx,scalex+offsetx,-scaley+offsety,scaley+offsety])
-    plot([t_prev-t0,t-t0], [p_prev,p], 'b')
-    pause(0.000001)
-    offsetx = offsetx+t-t_prev
+    # if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
+        # clf()
+    # axis([-scalex+offsetx,scalex+offsetx,-scaley+offsety,scaley+offsety])
+    # plot([t_prev-t0,t-t0], [p_prev,p], 'b')
+    # pause(0.000001)
+    # offsetx = offsetx+t-t_prev
  
-    if sensor.read(ms5837.OSR_256):
+    if sensor.read(ms5837.OSR_8192):
         print('t-t0: %0.2f s \tdt: %0.2f s \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p, temperature) 
     else:
         print('Sensor read failed!')
