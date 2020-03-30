@@ -27,8 +27,8 @@ from matplotlib.pyplot import *
 p_delta_max = 20 # In mbar
 p_delta_danger_max = 25 # In mbar
 p_delta_danger_min = -5 # In mbar
-breath_freq = 15 # In cycles/min
-inspi_ratio = 1.0/3.0
+breath_freq = 90 #60 # In cycles/min
+inspi_ratio = 1.0/2.0 #1.0/3.0
 #trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
@@ -99,7 +99,7 @@ fig = figure('Pressure')
 #clf()
 #axis('square')
 scalex = 10
-scaley = 2
+scaley = 30
 offsetx = -scalex
 offsety = p0
 
@@ -111,11 +111,15 @@ count = 0
 while True:
 
     if (t-t_cycle_start < inspi_duration_estim):
-        pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
-        pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        #pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        #pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        pwm0_ns = pwm0_ns_max
+        pwm1_ns = pwm1_ns_min
     else:
-        pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
-        pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        #pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        #pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        pwm0_ns = pwm0_ns_min
+        pwm1_ns = pwm1_ns_max
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
     pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
 
@@ -132,12 +136,13 @@ while True:
     file.write(line.format(t, p, temperature))
     file.flush()
 
-    # if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
-        # clf()
-    # axis([-scalex+offsetx,scalex+offsetx,-scaley+offsety,scaley+offsety])
-    # plot([t_prev-t0,t-t0], [p_prev,p], 'b')
-    # pause(0.000001)
-    # offsetx = offsetx+t-t_prev
+    if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
+        clf()
+    axis([-scalex+offsetx,scalex+offsetx,-scaley+offsety,scaley+offsety])
+    #axis('auto')
+    plot([t_prev-t0,t-t0], [p_prev,p], 'b')
+    pause(0.000001)
+    offsetx = offsetx+t-t_prev
  
     if sensor.read(ms5837.OSR_8192):
         print('t-t0: %0.2f s \tdt: %0.2f s \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p, temperature) 
