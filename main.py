@@ -40,11 +40,11 @@ pwm1_ns_max = 2000000
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
 buz_pin = 26
-GPIO.setup(buz_pin,GPIO.OUT)
+GPIO.setup(buz_pin, GPIO.OUT)
 buz_pwm = GPIO.PWM(buz_pin, 4000)
 buz_pwm.start(50)
 led_pin = 16
-GPIO.setup(led_pin,GPIO.OUT)
+GPIO.setup(led_pin, GPIO.OUT)
 led_pwm = GPIO.PWM(led_pin, 1000)
 led_pwm.start(100)
 
@@ -57,6 +57,12 @@ os.system('echo 1500000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle')
 os.system('echo 1500000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle')
 os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
 os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
+
+# Digital outputs (valves)
+valve_inspi_pin = 5
+GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = GPIO.LOW)
+valve_expi_pin = 6
+GPIO.setup(valve_expi_pin, GPIO.OUT, initial = GPIO.LOW)
 
 #sensor = ms5837.MS5837_30BA() # Default I2C bus is 1 (Raspberry Pi 3)
 #sensor = ms5837.MS5837_30BA(0) # Specify I2C bus
@@ -115,11 +121,15 @@ while True:
         #pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
+        GPIO.output(valve_inspi_pin, GPIO.LOW)
+        GPIO.output(valve_expi_pin, GPIO.HIGH)
     else:
         #pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         #pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         pwm0_ns = pwm0_ns_min
         pwm1_ns = pwm1_ns_max
+        GPIO.output(valve_inspi_pin, GPIO.HIGH)
+        GPIO.output(valve_expi_pin, GPIO.LOW)
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
     pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
 
@@ -138,9 +148,9 @@ while True:
 
     if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
         clf()
-    axis([-scalex+offsetx,scalex+offsetx,-scaley+offsety,scaley+offsety])
+    axis([-scalex+offsetx, scalex+offsetx, -scaley+offsety, scaley+offsety])
     #axis('auto')
-    plot([t_prev-t0,t-t0], [p_prev,p], 'b')
+    plot([t_prev-t0, t-t0], [p_prev, p], 'b')
     pause(0.000001)
     offsetx = offsetx+t-t_prev
  
