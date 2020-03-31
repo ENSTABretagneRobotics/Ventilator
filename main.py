@@ -24,11 +24,10 @@ from matplotlib.pyplot import *
 
 # Parameters
 ###############################################################################
-p_delta_max = 20 # In mbar
-p_delta_danger_max = 25 # In mbar
-p_delta_danger_min = -5 # In mbar
-breath_freq = 90 #60 # In cycles/min
-inspi_ratio = 1.0/2.0 #1.0/3.0
+p_delta_max = 25 # In mbar (= approx. cmH2O)
+p_delta_min = 5 # In mbar (= approx. cmH2O)
+breath_freq = 30 # In cycles/min
+inspi_ratio = 1.0/3.0
 #trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
@@ -86,9 +85,9 @@ t = timer()
 t_prev = t
 t0 = t
 t_cycle_start = t
-p = sensor.pressure()
+p = sensor.pressure() # The very first pressure measurements might be wrong, but it does not seem to be the case...
 p_prev = p
-p0 = p
+p0 = p # External pressure should be monitored with e.g. another sensor...
 p_cycle_start = p
 temperature = sensor.temperature()
 inspi_end = False
@@ -102,8 +101,9 @@ pwm1_ns = pwm1_ns_min
 file = open('data.csv', 'a')
 
 fig = figure('Pressure')
-#clf()
+clf()
 #axis('square')
+axis('auto')
 scalex = 10
 scaley = 30
 offsetx = -scalex
@@ -111,17 +111,19 @@ offsety = p0
 
 # Divisions by 0...
 
-# Should check p behavior (too high, too low, should compute p_delta_meas_min,
-# p_delta_meas_max)...
 count = 0
 while True:
-
     if (t-t_cycle_start < inspi_duration_estim):
-        #pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
-        #pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
-        pwm0_ns = pwm0_ns_max
-        pwm1_ns = pwm1_ns_min
-        GPIO.output(valve_inspi_pin, GPIO.LOW)
+        pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        #pwm0_ns = pwm0_ns_max
+        #pwm1_ns = pwm1_ns_min
+        if (p-p0 > p_delta_max): # Should close both valves to maintain p_delta_max...
+            pwm0_ns = pwm0_ns_min
+            pwm1_ns = pwm1_ns_max
+            GPIO.output(valve_inspi_pin, GPIO.HIGH)
+        else:
+            GPIO.output(valve_inspi_pin, GPIO.LOW)
         GPIO.output(valve_expi_pin, GPIO.HIGH)
     else:
         #pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
@@ -129,7 +131,10 @@ while True:
         pwm0_ns = pwm0_ns_min
         pwm1_ns = pwm1_ns_max
         GPIO.output(valve_inspi_pin, GPIO.HIGH)
-        GPIO.output(valve_expi_pin, GPIO.LOW)
+        if (p-p0 < p_delta_min): # Should close both valves to maintain p_delta_min...
+            GPIO.output(valve_expi_pin, GPIO.HIGH)
+        else:
+            GPIO.output(valve_expi_pin, GPIO.LOW)
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
     pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
 
