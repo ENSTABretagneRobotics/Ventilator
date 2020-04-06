@@ -20,12 +20,12 @@ from matplotlib.pyplot import *
 #dtparam=i2c_arm=on
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
 # Then reboot and
-#sudo python example.py
+#sudo python main.py
 
 # Parameters
 ###############################################################################
-p_delta_max = 25 # In mbar (= approx. cmH2O)
-p_delta_min = 5 # In mbar (= approx. cmH2O)
+Ppeak = 25 # In mbar (= approx. cmH2O)
+PEEP = 5 # In mbar (= approx. cmH2O)
 breath_freq = 15 # In cycles/min
 inspi_ratio = 1.0/3.0
 #trim PWM value start, end depending on balloon size...
@@ -90,8 +90,8 @@ p_prev = p
 p0 = p # External pressure should be monitored with e.g. another sensor...
 p_cycle_start = p
 temperature = sensor.temperature()
-pp_reached = False
-pep_reached = False
+Ppeak_reached = False
+PEEP_reached = False
 inspi_end = False
 inspi_duration_estim = inspi_duration
 expi_duration_estim = expi_duration
@@ -119,9 +119,9 @@ while True:
         #pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
         pwm0_ns = pwm0_ns_min
         pwm1_ns = pwm1_ns_max
-        pep_reached = False
-        if ((p-p0 > p_delta_max) or (pp_reached == True)): # Should close both valves to maintain p_delta_max...
-            pp_reached = True
+        PEEP_reached = False
+        if ((p-p0 > Ppeak) or (Ppeak_reached == True)): # Should close both valves to maintain Ppeak...
+            Ppeak_reached = True
             pwm0_ns = pwm0_ns_max
             pwm1_ns = pwm1_ns_min
             GPIO.output(valve_inspi_pin, GPIO.LOW)
@@ -133,10 +133,11 @@ while True:
         #pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
-        pp_reached = False
+        Ppeak_reached = False
         GPIO.output(valve_inspi_pin, GPIO.LOW)
-        if ((p-p0 < p_delta_min) or (pep_reached == True)): # Should close both valves to maintain p_delta_min...
-            pep_reached = True
+        #if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close both valves to maintain PEEP...
+        if (p-p0 < PEEP): # Should close both valves to maintain PEEP...
+            PEEP_reached = True
             GPIO.output(valve_expi_pin, GPIO.LOW)
         else:
             GPIO.output(valve_expi_pin, GPIO.HIGH)
