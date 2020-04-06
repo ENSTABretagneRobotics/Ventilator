@@ -26,7 +26,7 @@ from matplotlib.pyplot import *
 ###############################################################################
 p_delta_max = 25 # In mbar (= approx. cmH2O)
 p_delta_min = 5 # In mbar (= approx. cmH2O)
-breath_freq = 20 # In cycles/min
+breath_freq = 15 # In cycles/min
 inspi_ratio = 1.0/3.0
 #trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
@@ -90,6 +90,8 @@ p_prev = p
 p0 = p # External pressure should be monitored with e.g. another sensor...
 p_cycle_start = p
 temperature = sensor.temperature()
+pp_reached = False
+pep_reached = False
 inspi_end = False
 inspi_duration_estim = inspi_duration
 expi_duration_estim = expi_duration
@@ -102,16 +104,13 @@ file = open('data.csv', 'a')
 
 fig = figure('Pressure')
 clf()
-#axis('square')
 axis('auto')
-scalex = 10
+scalex = 5
 scaley = 50
 offsetx = -scalex
 offsety = p0
 
 # Divisions by 0...
-
-pp_reached = False
 
 count = 0
 while True:
@@ -120,6 +119,7 @@ while True:
         #pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
         pwm0_ns = pwm0_ns_min
         pwm1_ns = pwm1_ns_max
+        pep_reached = False
         if ((p-p0 > p_delta_max) or (pp_reached == True)): # Should close both valves to maintain p_delta_max...
             pp_reached = True
             pwm0_ns = pwm0_ns_max
@@ -135,7 +135,8 @@ while True:
         pwm1_ns = pwm1_ns_min
         pp_reached = False
         GPIO.output(valve_inspi_pin, GPIO.LOW)
-        if (p-p0 < p_delta_min): # Should close both valves to maintain p_delta_min...
+        if ((p-p0 < p_delta_min) or (pep_reached == True)): # Should close both valves to maintain p_delta_min...
+            pep_reached = True
             GPIO.output(valve_expi_pin, GPIO.LOW)
         else:
             GPIO.output(valve_expi_pin, GPIO.HIGH)
