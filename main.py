@@ -26,7 +26,7 @@ from matplotlib.pyplot import *
 ###############################################################################
 p_delta_max = 25 # In mbar (= approx. cmH2O)
 p_delta_min = 5 # In mbar (= approx. cmH2O)
-breath_freq = 30 # In cycles/min
+breath_freq = 15 # In cycles/min
 inspi_ratio = 1.0/3.0
 #trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
@@ -58,9 +58,9 @@ os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
 os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
 
 # Digital outputs (valves)
-valve_inspi_pin = 5
+valve_inspi_pin = 6
 GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = GPIO.LOW)
-valve_expi_pin = 6
+valve_expi_pin = 5
 GPIO.setup(valve_expi_pin, GPIO.OUT, initial = GPIO.LOW)
 
 #sensor = ms5837.MS5837_30BA() # Default I2C bus is 1 (Raspberry Pi 3)
@@ -105,11 +105,13 @@ clf()
 #axis('square')
 axis('auto')
 scalex = 10
-scaley = 30
+scaley = 50
 offsetx = -scalex
 offsety = p0
 
 # Divisions by 0...
+
+pp_reached = False
 
 count = 0
 while True:
@@ -118,23 +120,25 @@ while True:
         pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
         #pwm0_ns = pwm0_ns_max
         #pwm1_ns = pwm1_ns_min
-        if (p-p0 > p_delta_max): # Should close both valves to maintain p_delta_max...
+        if ((p-p0 > p_delta_max) or (pp_reached == True)): # Should close both valves to maintain p_delta_max...
+            pp_reached = True
             pwm0_ns = pwm0_ns_min
             pwm1_ns = pwm1_ns_max
-            GPIO.output(valve_inspi_pin, GPIO.HIGH)
-        else:
             GPIO.output(valve_inspi_pin, GPIO.LOW)
-        GPIO.output(valve_expi_pin, GPIO.HIGH)
+        else:
+            GPIO.output(valve_inspi_pin, GPIO.HIGH)
+        GPIO.output(valve_expi_pin, GPIO.LOW)
     else:
         #pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         #pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         pwm0_ns = pwm0_ns_min
         pwm1_ns = pwm1_ns_max
-        GPIO.output(valve_inspi_pin, GPIO.HIGH)
+        pp_reached = False
+        GPIO.output(valve_inspi_pin, GPIO.LOW)
         if (p-p0 < p_delta_min): # Should close both valves to maintain p_delta_min...
-            GPIO.output(valve_expi_pin, GPIO.HIGH)
-        else:
             GPIO.output(valve_expi_pin, GPIO.LOW)
+        else:
+            GPIO.output(valve_expi_pin, GPIO.HIGH)
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
     pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
 
