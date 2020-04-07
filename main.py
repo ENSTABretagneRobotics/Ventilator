@@ -18,7 +18,9 @@ from matplotlib.pyplot import *
 #sudo nano /boot/config.txt
 # Add in /boot/config.txt
 #dtparam=i2c_arm=on
+#dtoverlay=i2c-gpio,bus=6,i2c_gpio_delay_us=1,i2c_gpio_sda=22,i2c_gpio_scl=23
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
+#dtparam=spi=on
 # Then reboot and
 #sudo python main.py
 
@@ -42,7 +44,7 @@ buz_pin = 26
 GPIO.setup(buz_pin, GPIO.OUT)
 buz_pwm = GPIO.PWM(buz_pin, 4000)
 buz_pwm.start(50)
-led_pin = 16
+led_pin = 24
 GPIO.setup(led_pin, GPIO.OUT)
 led_pwm = GPIO.PWM(led_pin, 1000)
 led_pwm.start(100)
@@ -62,6 +64,14 @@ valve_inspi_pin = 6
 GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = GPIO.LOW)
 valve_expi_pin = 5
 GPIO.setup(valve_expi_pin, GPIO.OUT, initial = GPIO.LOW)
+
+# Digital inputs (buttons)
+select = 0
+# TODO
+
+# I2C pull up...
+#os.system('raspi-gpio set 2-3 pu')
+#os.system('raspi-gpio set 22-23 pu')
 
 #sensor = ms5837.MS5837_30BA() # Default I2C bus is 1 (Raspberry Pi 3)
 #sensor = ms5837.MS5837_30BA(0) # Specify I2C bus
@@ -101,6 +111,7 @@ pwm0_ns = pwm0_ns_max
 pwm1_ns = pwm1_ns_min
 
 file = open('data.csv', 'a')
+file.write('t (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio')
 
 fig = figure('Pressure')
 clf()
@@ -153,8 +164,8 @@ while True:
     buz_pwm.ChangeFrequency(math.trunc(pwm1_ns/1000.0))
     led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (pwm1_ns-pwm1_ns_min)/(pwm1_ns_max-pwm1_ns_min))))))
     
-    line = '{};{};{}\n'
-    file.write(line.format(t, p, temperature))
+    line = '{};{};{};{};{};{};{};{};{}\n'
+    file.write(line.format(t, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio))
     file.flush()
 
     if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
