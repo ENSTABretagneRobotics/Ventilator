@@ -42,6 +42,29 @@ scaley = 50
 offsety = 0
 ###############################################################################
 
+# BAR02
+#p_sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0)
+p_sensor = ms5837.MS5837_02BA(bus=1)
+if not p_sensor.init():
+    print('P sensor could not be initialized')
+    exit(1)
+if enable_p0_sensor:
+    p0_sensor = ms5837.MS5837_02BA(bus=6)
+    if not p0_sensor.init():
+        print('P0 sensor could not be initialized')
+        exit(1)
+# The very first pressure measurements might be wrong...
+i = 0
+while (i < 5):
+    if not p_sensor.read(ms5837.OSR_8192):
+        print('P sensor read failed!')
+        exit(1)
+    if enable_p0_sensor:
+        if not p0_sensor.read(ms5837.OSR_8192):
+            print('P0 sensor read failed!')
+            exit(1)
+    i = i+1
+
 # Software PWM init (for buzzer and status LED)
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
@@ -74,24 +97,6 @@ GPIO.setup(valve_expi_pin, GPIO.OUT, initial = GPIO.LOW)
 select = 0
 # TODO
 
-#p_sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0)
-p_sensor = ms5837.MS5837_02BA(bus=1)
-if not p_sensor.init():
-    print('P sensor could not be initialized')
-    exit(1)
-if not p_sensor.read():
-    print('P sensor read failed!')
-    exit(1)
-
-if enable_p0_sensor:
-    p0_sensor = ms5837.MS5837_02BA(bus=6)
-    if not p0_sensor.init():
-        print('P0 sensor could not be initialized')
-        exit(1)
-    if not p0_sensor.read():
-        print('P0 sensor read failed!')
-        exit(1)
-
 breath_freq_converted = breath_freq*(1.0/60.0) # In cycles/s
 cycle_duration = 1.0/breath_freq_converted
 inspi_duration = inspi_ratio*cycle_duration
@@ -101,7 +106,7 @@ t = timer()
 t_prev = t
 t0 = t
 t_cycle_start = t
-p = p_sensor.pressure() # The very first pressure measurements might be wrong, but it does not seem to be the case...
+p = p_sensor.pressure()
 p_prev = p
 p_cycle_start = p
 if enable_p0_sensor: p0 = p0_sensor.pressure() 
@@ -118,7 +123,7 @@ pwm0_ns = pwm0_ns_max
 pwm1_ns = pwm1_ns_min
 
 file = open('data.csv', 'a')
-file.write('t (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio')
+file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio')
 
 if enable_old_gui:
     fig = figure('Pressure')
@@ -169,8 +174,8 @@ while True:
     buz_pwm.ChangeFrequency(math.trunc(pwm1_ns/1000.0))
     led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (pwm1_ns-pwm1_ns_min)/(pwm1_ns_max-pwm1_ns_min))))))
     
-    line = '{};{};{};{};{};{};{};{};{}\n'
-    file.write(line.format(t, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio))
+    line = '{};{};{};{};{};{};{};{};{};{}\n'
+    file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio))
     file.flush()
 
     if enable_old_gui:
@@ -182,7 +187,7 @@ while True:
         pause(0.000001)
         offsetx = offsetx+t-t_prev
  
-    if not p_sensor.read(ms5837.OSR_256):
+    if not p_sensor.read(ms5837.OSR_8192):
         print('P sensor read failed!')
         exit(1)
 
