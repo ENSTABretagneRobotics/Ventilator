@@ -35,6 +35,8 @@ pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
 pwm1_ns_min = 1500000
 pwm1_ns_max = 2000000
+enable_gui = False
+enable_p0_sensor = False
 ###############################################################################
 
 # Software PWM init (for buzzer and status LED)
@@ -69,22 +71,23 @@ GPIO.setup(valve_expi_pin, GPIO.OUT, initial = GPIO.LOW)
 select = 0
 # TODO
 
-# I2C pull up...
-#os.system('raspi-gpio set 2-3 pu')
-#os.system('raspi-gpio set 22-23 pu')
-
-#sensor = ms5837.MS5837_30BA() # Default I2C bus is 1 (Raspberry Pi 3)
-#sensor = ms5837.MS5837_30BA(0) # Specify I2C bus
-sensor = ms5837.MS5837_02BA()
-#sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0) # Specify model
-#and bus
-if not sensor.init():
-    print('Sensor could not be initialized')
+#p_sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0)
+p_sensor = ms5837.MS5837_02BA(bus=1)
+if not p_sensor.init():
+    print('P sensor could not be initialized')
+    exit(1)
+if not p_sensor.read():
+    print('P sensor read failed!')
     exit(1)
 
-if not sensor.read():
-    print('Sensor read failed!')
-    exit(1)
+if enable_p0_sensor:
+    p0_sensor = ms5837.MS5837_02BA(bus=6)
+    if not p0_sensor.init():
+        print('P0 sensor could not be initialized')
+        exit(1)
+    if not p0_sensor.read():
+        print('P0 sensor read failed!')
+        exit(1)
 
 breath_freq_converted = breath_freq*(1.0/60.0) # In cycles/s
 cycle_duration = 1.0/breath_freq_converted
@@ -95,11 +98,12 @@ t = timer()
 t_prev = t
 t0 = t
 t_cycle_start = t
-p = sensor.pressure() # The very first pressure measurements might be wrong, but it does not seem to be the case...
+p = p_sensor.pressure() # The very first pressure measurements might be wrong, but it does not seem to be the case...
 p_prev = p
-p0 = p # External pressure should be monitored with e.g. another sensor...
 p_cycle_start = p
-temperature = sensor.temperature()
+if enable_p0_sensor: p0 = p0_sensor.pressure() 
+else: p0 = p
+temperature = p_sensor.temperature()
 Ppeak_reached = False
 PEEP_reached = False
 inspi_end = False
@@ -113,13 +117,14 @@ pwm1_ns = pwm1_ns_min
 file = open('data.csv', 'a')
 file.write('t (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio')
 
-fig = figure('Pressure')
-clf()
-axis('auto')
-scalex = 5
-scaley = 50
-offsetx = -scalex
-offsety = p0
+if enable_gui:
+    fig = figure('Pressure')
+    clf()
+    axis('auto')
+    scalex = 5
+    scaley = 50
+    offsetx = -scalex
+    offsety = 0
 
 # Divisions by 0...
 
@@ -168,27 +173,33 @@ while True:
     file.write(line.format(t, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio))
     file.flush()
 
-    if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
-        clf()
-    axis([-scalex+offsetx, scalex+offsetx, -scaley+offsety, scaley+offsety])
-    #axis('auto')
-    plot([t_prev-t0, t-t0], [p_prev, p], 'b')
-    pause(0.000001)
-    offsetx = offsetx+t-t_prev
+    if enable_gui:
+        if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
+            clf()
+        axis([-scalex+offsetx, scalex+offsetx, -scaley+offsety, scaley+offsety])
+        #axis('auto')
+        plot([t_prev-t0, t-t0], [p_prev-p0, p-p0], 'b')
+        pause(0.000001)
+        offsetx = offsetx+t-t_prev
  
-    if sensor.read(ms5837.OSR_8192):
-        print('t-t0: %0.2f s \tdt: %0.2f s \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p, temperature) 
-    else:
-        print('Sensor read failed!')
+    if not p_sensor.read(ms5837.OSR_8192):
+        print('P sensor read failed!')
         exit(1)
+
+    print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p0, p, temperature) 
     
     t_prev = t
     t = timer()
     p_prev = p
-    p = sensor.pressure()
-    temperature = sensor.temperature()
+    p = p_sensor.pressure()
+    temperature = p_sensor.temperature()
     if (t-t_cycle_start > cycle_duration_estim):
         t_cycle_start = t
         p_cycle_start = p
+        if enable_p0_sensor:    
+            if not p0_sensor.read(ms5837.OSR_8192):
+                print('P0 sensor read failed!')
+                exit(1)
+            p0 = p0_sensor.pressure() 
         inspi_end = False
     count = count+1
