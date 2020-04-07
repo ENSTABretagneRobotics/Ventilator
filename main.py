@@ -35,8 +35,11 @@ pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
 pwm1_ns_min = 1500000
 pwm1_ns_max = 2000000
-enable_gui = False
 enable_p0_sensor = False
+enable_old_gui = False
+scalex = 5
+scaley = 50
+offsety = 0
 ###############################################################################
 
 # Software PWM init (for buzzer and status LED)
@@ -117,14 +120,11 @@ pwm1_ns = pwm1_ns_min
 file = open('data.csv', 'a')
 file.write('t (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio')
 
-if enable_gui:
+if enable_old_gui:
     fig = figure('Pressure')
     clf()
     axis('auto')
-    scalex = 5
-    scaley = 50
     offsetx = -scalex
-    offsety = 0
 
 # Divisions by 0...
 
@@ -173,7 +173,7 @@ while True:
     file.write(line.format(t, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio))
     file.flush()
 
-    if enable_gui:
+    if enable_old_gui:
         if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
             clf()
         axis([-scalex+offsetx, scalex+offsetx, -scaley+offsety, scaley+offsety])
@@ -182,7 +182,7 @@ while True:
         pause(0.000001)
         offsetx = offsetx+t-t_prev
  
-    if not p_sensor.read(ms5837.OSR_8192):
+    if not p_sensor.read(ms5837.OSR_256):
         print('P sensor read failed!')
         exit(1)
 
