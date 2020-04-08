@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import ms5837
+import ms5837 # From https://github.com/bluerobotics/ms5837-python
 import RPi.GPIO as GPIO
 import math
 import sys
@@ -56,11 +56,11 @@ if enable_p0_sensor:
 # The very first pressure measurements might be wrong...
 i = 0
 while (i < 5):
-    if not p_sensor.read(ms5837.OSR_8192):
+    if not p_sensor.read(ms5837.OSR_256):
         print('P sensor read failed!')
         exit(1)
     if enable_p0_sensor:
-        if not p0_sensor.read(ms5837.OSR_8192):
+        if not p0_sensor.read(ms5837.OSR_256):
             print('P0 sensor read failed!')
             exit(1)
     i = i+1
@@ -89,9 +89,11 @@ os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
 
 # Digital outputs (valves)
 valve_inspi_pin = 6
-GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = GPIO.LOW)
+valve_inspi_val = GPIO.LOW
+GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = valve_inspi_val)
 valve_expi_pin = 5
-GPIO.setup(valve_expi_pin, GPIO.OUT, initial = GPIO.LOW)
+valve_expi_val = GPIO.LOW
+GPIO.setup(valve_expi_pin, GPIO.OUT, initial = valve_expi_val)
 
 # Digital inputs (buttons)
 select = 0
@@ -123,7 +125,7 @@ pwm0_ns = pwm0_ns_max
 pwm1_ns = pwm1_ns_min
 
 file = open('data.csv', 'a')
-file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio')
+file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;\n')
 
 if enable_old_gui:
     fig = figure('Pressure')
@@ -145,23 +147,29 @@ while True:
             Ppeak_reached = True
             pwm0_ns = pwm0_ns_max
             pwm1_ns = pwm1_ns_min
-            GPIO.output(valve_inspi_pin, GPIO.LOW)
+            valve_inspi_val = GPIO.LOW
+            GPIO.output(valve_inspi_pin, valve_inspi_val)
         else:
-            GPIO.output(valve_inspi_pin, GPIO.HIGH)
-        GPIO.output(valve_expi_pin, GPIO.LOW)
+            valve_inspi_val = GPIO.HIGH
+            GPIO.output(valve_inspi_pin, valve_inspi_val)
+        valve_expi_val = GPIO.LOW
+        GPIO.output(valve_expi_pin, valve_expi_val)
     else:
         #pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         #pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
         Ppeak_reached = False
-        GPIO.output(valve_inspi_pin, GPIO.LOW)
-        #if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close both valves to maintain PEEP...
-        if (p-p0 < PEEP): # Should close both valves to maintain PEEP...
+        valve_inspi_val = GPIO.LOW
+        GPIO.output(valve_inspi_pin, valve_inspi_val)
+        if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close both valves to maintain PEEP...
+        #if (p-p0 < PEEP): # Should close both valves to maintain PEEP...
             PEEP_reached = True
-            GPIO.output(valve_expi_pin, GPIO.LOW)
+            valve_expi_val = GPIO.LOW
+            GPIO.output(valve_expi_pin, valve_expi_val)
         else:
-            GPIO.output(valve_expi_pin, GPIO.HIGH)
+            valve_expi_val = GPIO.HIGH
+            GPIO.output(valve_expi_pin, valve_expi_val)
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
     pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
 
@@ -174,8 +182,8 @@ while True:
     buz_pwm.ChangeFrequency(math.trunc(pwm1_ns/1000.0))
     led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (pwm1_ns-pwm1_ns_min)/(pwm1_ns_max-pwm1_ns_min))))))
     
-    line = '{};{};{};{};{};{};{};{};{};{}\n'
-    file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio))
+    line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+    file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val))
     file.flush()
 
     if enable_old_gui:
@@ -187,7 +195,7 @@ while True:
         pause(0.000001)
         offsetx = offsetx+t-t_prev
  
-    if not p_sensor.read(ms5837.OSR_8192):
+    if not p_sensor.read(ms5837.OSR_256):
         print('P sensor read failed!')
         exit(1)
 
@@ -202,7 +210,7 @@ while True:
         t_cycle_start = t
         p_cycle_start = p
         if enable_p0_sensor:    
-            if not p0_sensor.read(ms5837.OSR_8192):
+            if not p0_sensor.read(ms5837.OSR_256):
                 print('P0 sensor read failed!')
                 exit(1)
             p0 = p0_sensor.pressure() 

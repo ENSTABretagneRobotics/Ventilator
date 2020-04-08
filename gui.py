@@ -16,10 +16,13 @@ scaley = 50
 offsety = 30
 ###############################################################################
 
-nb_cols = 10
+nb_cols = 14
+dt = 0.025
 
 t_plot = [0]
 p_cmh2o_plot = [0]
+valve_inspi_plot = [0]
+valve_expi_plot = [0]
 
 win = pg.GraphicsWindow()
 #win.move(0, 0)
@@ -31,6 +34,8 @@ plt.setLabel('left', 'Pressure (in cmH2O)')
 plt.setLabel('bottom', 'Time (in s)')
 plt.addLegend()
 c1 = plt.plot(t_plot, p_cmh2o_plot, pen = "y")
+c2 = plt.plot(t_plot, valve_inspi_plot, pen = "c")
+c3 = plt.plot(t_plot, valve_expi_plot, pen = "m")
 if (scaley != 0): 
     plt.enableAutoRange("y", False)
     plt.setYRange(-scaley+offsety, scaley+offsety, 0)
@@ -68,19 +73,25 @@ while True:
                             p_cmh2o_plot = [0]
                         t_plot.append(t-t0)
                         p_cmh2o_plot.append((float(cols[3])-float(cols[2]))*1.01972)
+                        valve_inspi_plot.append(10*float(cols[12]))
+                        valve_expi_plot.append(10*float(cols[13]))
                         if (t_plot[-1]-t_plot[0] > 2*scalex):
                             t_plot.pop(0)
                             p_cmh2o_plot.pop(0)
+                            valve_inspi_plot.pop(0)
+                            valve_expi_plot.pop(0)
                     except ValueError: 
-                        time.sleep(0.05)
+                        time.sleep(dt)
                 else:
-                    time.sleep(0.05)
+                    time.sleep(dt)
         else:
-            time.sleep(0.05)
+            time.sleep(dt)
     except EOFError: 
         file.seek(0, os.SEEK_END) # Might be necessary on recent versions of Linux, see https://lists.gnu.org/archive/html/info-gnu/2018-08/msg00000.html...
    
     c1.setData(t_plot, p_cmh2o_plot)
+    c2.setData(t_plot, valve_inspi_plot)
+    c3.setData(t_plot, valve_expi_plot)
 
     pg.QtGui.QApplication.processEvents()
 
