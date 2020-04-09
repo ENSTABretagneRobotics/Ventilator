@@ -133,7 +133,7 @@ if enable_old_gui:
     axis('auto')
     offsetx = -scalex
 
-# Divisions by 0...
+# Divisions by 0, NAN, INF...?
 
 count = 0
 while True:
