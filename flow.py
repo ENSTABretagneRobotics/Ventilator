@@ -7,11 +7,13 @@ import os
 import threading
 from timeit import default_timer as timer
 
-rho_air = 1.184
-A1 = math.pi*(0.019/2.0)**2
-A2 = math.pi*(0.015/2.0)**2
+R1 = 0.019/2.0
+R2 = 0.015/2.0
 
-file = open('data.csv', 'a')
+A1 = math.pi*R1**2
+A2 = math.pi*R2**2
+
+file = open('data_flow.csv', 'a')
 file.write('t (in s);t0;flow (in m3/s);\n')
 
 sensorrs = imp.load_source('rsc', 'rsc.py') # From https://github.com/tin-/ascp
@@ -38,6 +40,7 @@ while (True):
     pressure_rsc, temperature_rsc = sensorrsc.comp_readings(0.030)
     if (count < nb_count): offset = (1-1.0/nb_count)*pressure_rsc+(1.0/nb_count)*offset
     pressure_rsc = pressure_rsc-offset
+    rho_air = 1.292*(273.15/(273.15+temperature_rsc)) # In Kg/m3
     velocity = np.sign(pressure_rsc)*math.sqrt(2*(np.abs(pressure_rsc)*248.84)/(rho_air*((A1/A2)**2-1)))
     flow = A1*velocity
     print('Flow : %0.2f L/min, velocity : %0.3f m/s, Pressure : %0.6f inchH2O, offset : %0.6f inchH2O, Temperature : %0.6f C' % (flow*60000, velocity, pressure_rsc, offset, temperature_rsc))

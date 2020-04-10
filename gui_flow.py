@@ -39,7 +39,7 @@ if (scaley != 0):
 # Waiting for the file to be created...
 while True:
     try:
-        file = open('data.csv', 'r')
+        file = open('data_flow.csv', 'r')
     except IOError:
         time.sleep(1)
     else:
