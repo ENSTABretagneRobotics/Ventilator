@@ -16,7 +16,7 @@ scaley = 50
 offsety = 30
 ###############################################################################
 
-nb_cols = 14 # Not counting the final '\n'
+nb_cols = 15 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -33,9 +33,9 @@ plt.showGrid(x = True, y = True)
 plt.setLabel('left', 'Pressure (in cmH2O)')
 plt.setLabel('bottom', 'Time (in s)')
 plt.addLegend()
-c1 = plt.plot(t_plot, p_cmh2o_plot, pen = "y")
-c2 = plt.plot(t_plot, valve_inspi_plot, pen = "c")
-c3 = plt.plot(t_plot, valve_expi_plot, pen = "m")
+c1 = plt.plot(t_plot, p_cmh2o_plot, pen = "y", name = 'Pressure')
+c2 = plt.plot(t_plot, valve_inspi_plot, pen = "c", name = 'Inspiration valve')
+c3 = plt.plot(t_plot, valve_expi_plot, pen = "m", name = 'Expiration valve')
 if (scaley != 0): 
     plt.enableAutoRange("y", False)
     plt.setYRange(-scaley+offsety, scaley+offsety, 0)
@@ -67,8 +67,14 @@ while True:
                         t0 = float(cols[1])
                         p0 = float(cols[2])
                         p = float(cols[3])
-                        valve_inspi = float(cols[12])
-                        valve_expi = float(cols[13])
+                        temperature = float(cols[4])
+                        select = float(cols[5])
+                        Ppeak = float(cols[6])
+                        PEEP = float(cols[7])
+                        breath_freq = float(cols[8])
+                        inspi_ratio = float(cols[9])
+                        valve_inspi = float(cols[13])
+                        valve_expi = float(cols[14])
                         dt = t-t0
                         p_cmh2o = (float(cols[3])-float(cols[2]))*1.01972
                         if (dt < t_plot[-1]): 
@@ -77,6 +83,13 @@ while True:
                             p_cmh2o_plot = [0]
                             valve_inspi_plot = [0]
                             valve_expi_plot = [0]
+                        if (select == 0): wintitle = '[Ppeak = {} cmH2O], PEEP = {} cmH2O, breath_freq = {} cycles/min, inspi_ratio = {}'
+                        elif (select == 1): wintitle = 'Ppeak = {} cmH2O, [PEEP = {} cmH2O], breath_freq = {} cycles/min, inspi_ratio = {}'
+                        elif (select == 2): wintitle = 'Ppeak = {} cmH2O, PEEP = {} cmH2O, [breath_freq = {} cycles/min], inspi_ratio = {}'
+                        elif (select == 3): wintitle = 'Ppeak = {} cmH2O, PEEP = {} cmH2O], breath_freq = {} cycles/min, [inspi_ratio = {}]'
+                        else: wintitle = 'Ppeak = {} cmH2O, PEEP = {} cmH2O, breath_freq = {} cycles/min, inspi_ratio = {}'
+                        win.setWindowTitle(wintitle.format(Ppeak, PEEP, breath_freq, inspi_ratio))
+                        plt.setTitle('Temperature : {} C'.format(temperature))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
