@@ -26,11 +26,12 @@ valve_expi_plot = [0]
 
 win = pg.GraphicsWindow()
 #win.move(0, 0)
-#win.resize(400, 400)
+#win.resize(800, 400)
 win.setWindowTitle('Pressure')
 plt = win.addPlot()
 plt.showGrid(x = True, y = True)
 plt.setLabel('left', 'Pressure (in cmH2O)')
+#plt.setLabel('right', 'Flow (in L/min)')
 plt.setLabel('bottom', 'Time (in s)')
 plt.addLegend()
 c1 = plt.plot(t_plot, p_cmh2o_plot, pen = "y", name = 'Pressure')
@@ -71,7 +72,7 @@ while True:
                         select = float(cols[5])
                         Ppeak = float(cols[6])
                         PEEP = float(cols[7])
-                        breath_freq = float(cols[8])
+                        respi_rate = float(cols[8])
                         inspi_ratio = float(cols[9])
                         valve_inspi = float(cols[13])
                         valve_expi = float(cols[14])
@@ -83,13 +84,13 @@ while True:
                             p_cmh2o_plot = [0]
                             valve_inspi_plot = [0]
                             valve_expi_plot = [0]
-                        if (select == 0): wintitle = '[Ppeak = {} cmH2O], PEEP = {} cmH2O, breath_freq = {} cycles/min, inspi_ratio = {}'
-                        elif (select == 1): wintitle = 'Ppeak = {} cmH2O, [PEEP = {} cmH2O], breath_freq = {} cycles/min, inspi_ratio = {}'
-                        elif (select == 2): wintitle = 'Ppeak = {} cmH2O, PEEP = {} cmH2O, [breath_freq = {} cycles/min], inspi_ratio = {}'
-                        elif (select == 3): wintitle = 'Ppeak = {} cmH2O, PEEP = {} cmH2O], breath_freq = {} cycles/min, [inspi_ratio = {}]'
-                        else: wintitle = 'Ppeak = {} cmH2O, PEEP = {} cmH2O, breath_freq = {} cycles/min, inspi_ratio = {}'
-                        win.setWindowTitle(wintitle.format(Ppeak, PEEP, breath_freq, inspi_ratio))
-                        plt.setTitle('Temperature : {} C'.format(temperature))
+                        if (select == 0): wintitle = '[Ppeak = {:d}], PEEP = {:d}, respi. rate = {:d}/min, I:E ratio = {}'
+                        elif (select == 1): wintitle = 'Ppeak = {:d}, [PEEP = {:d}], respi. rate = {:d}/min, I:E ratio = {}'
+                        elif (select == 2): wintitle = 'Ppeak = {:d}, PEEP = {:d}, [respi. rate = {:d}/min], I:E ratio = {}'
+                        elif (select == 3): wintitle = 'Ppeak = {:d}, PEEP = {:d}], respi. rate = {:d}/min, [I:E ratio = {}]'
+                        else: wintitle = 'Ppeak = {:d}, PEEP = {:d}, respi. rate = {:d}/min, I:E ratio = {}'
+                        win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio))
+                        plt.setTitle('Temperature : {:.2f} C'.format(temperature))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
