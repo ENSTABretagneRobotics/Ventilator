@@ -30,7 +30,6 @@ plt = win.addPlot()
 plt.showGrid(x = True, y = True)
 plt.setLabel('left', 'Flow (in L/min)')
 plt.setLabel('bottom', 'Time (in s)')
-plt.addLegend()
 c1 = plt.plot(t_plot, flow_l_min_plot, pen = "y")
 if (scaley != 0): 
     plt.enableAutoRange("y", False)
@@ -47,7 +46,7 @@ while True:
 
 file.seek(0, os.SEEK_END)
 
-count = 0
+#count = 0
 while True:
     start_time = time.time()
 
@@ -88,11 +87,11 @@ while True:
 
     pg.QtGui.QApplication.processEvents()
 
-    count += 1
+    #count += 1
 
     end_time = time.time()
     #print("It has been %0.3f seconds since the loop started" %(end_time - start_time))
 
-win.close()
-
 file.close()
+
+win.close()

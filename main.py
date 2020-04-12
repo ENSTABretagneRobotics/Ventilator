@@ -55,36 +55,13 @@ scaley = 50
 offsety = 0
 ###############################################################################
 
-# Bar02
-#p_sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0)
-p_sensor = ms5837.MS5837_02BA(bus=1)
-if not p_sensor.init():
-    print('P sensor could not be initialized')
-    exit(1)
-if enable_p0_sensor:
-    p0_sensor = ms5837.MS5837_02BA(bus=6)
-    if not p0_sensor.init():
-        print('P0 sensor could not be initialized')
-        exit(1)
-# The very first pressure measurements might be wrong...
-i = 0
-while (i < 5):
-    if not p_sensor.read(ms5837.OSR_256):
-        print('P sensor read failed!')
-        exit(1)
-    if enable_p0_sensor:
-        if not p0_sensor.read(ms5837.OSR_256):
-            print('P0 sensor read failed!')
-            exit(1)
-    i = i+1
-
 # Software PWM init (for buzzer and status LED)
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
 buz_pin = 26
 GPIO.setup(buz_pin, GPIO.OUT)
 buz_pwm = GPIO.PWM(buz_pin, 4000)
-buz_pwm.start(50)
+buz_pwm.start(50) # Startup beep...
 led_pin = 24
 GPIO.setup(led_pin, GPIO.OUT)
 led_pwm = GPIO.PWM(led_pin, 1000)
@@ -112,17 +89,44 @@ GPIO.setup(valve_expi_pin, GPIO.OUT, initial = valve_expi_val)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
 parameters = ['Ppeak', 'PEEP', 'breath_freq', 'inspi_ratio']
 select_button_pin = 4
-GPIO.setup(select_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(select_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 select_button_val = GPIO.input(select_button_pin)
 select_button_val_prev = select_button_val
 up_button_pin = 16
-GPIO.setup(up_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(up_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 up_button_val = GPIO.input(up_button_pin)
 up_button_val_prev = up_button_val
 down_button_pin = 17
-GPIO.setup(down_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(down_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 down_button_val = GPIO.input(down_button_pin)
 down_button_val_prev = down_button_val
+
+# Bar02
+#p_sensor = ms5837.MS5837(model=ms5837.MS5837_MODEL_30BA, bus=0)
+p_sensor = ms5837.MS5837_02BA(bus=1)
+if not p_sensor.init():
+    print('P sensor could not be initialized')
+    time.sleep(0.1)
+    if not p_sensor.init():
+        print('P sensor could not be initialized')
+        exit(1)
+if enable_p0_sensor:
+    p0_sensor = ms5837.MS5837_02BA(bus=6)
+    if not p0_sensor.init():
+        print('P0 sensor could not be initialized')
+        time.sleep(0.1)
+        if not p0_sensor.init():
+            print('P0 sensor could not be initialized')
+            exit(1)
+# The very first pressure measurements might be wrong...
+i = 0
+while (i < 5):
+    if not p_sensor.read(ms5837.OSR_256):
+        print('P sensor read failed!')
+    if enable_p0_sensor:
+        if not p0_sensor.read(ms5837.OSR_256):
+            print('P0 sensor read failed!')
+    i = i+1
 
 breath_freq_converted = breath_freq*(1.0/60.0) # In cycles/s
 cycle_duration = 1.0/breath_freq_converted
@@ -149,14 +153,21 @@ cycle_duration_estim = cycle_duration
 pwm0_ns = pwm0_ns_max
 pwm1_ns = pwm1_ns_min
 
-file = open('data.csv', 'a')
-file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;\n')
+# File errors are not critical...
+try:
+    file = open('data.csv', 'a')
+    file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);breath_freq (in cycles/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;\n')
+except:
+    pass
 
 if enable_old_gui:
     fig = figure('Pressure')
     clf()
     axis('auto')
     offsetx = -scalex
+
+# Stop the startup beep
+buz_pwm.ChangeDutyCycle(0)
 
 # Divisions by 0, NAN, INF...?
 
@@ -204,21 +215,20 @@ while True:
     os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
 
     # Test...
-    buz_pwm.ChangeFrequency(math.trunc(pwm1_ns/1000.0))
     led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (pwm1_ns-pwm1_ns_min)/(pwm1_ns_max-pwm1_ns_min))))))
 
     # Buttons to set parameters
     select_button_val = GPIO.input(select_button_pin)
     if (select_button_val != select_button_val_prev):
         select_button_val_prev = select_button_val
-        if (select_button_val == GPIO.LOW):
+        if (select_button_val == GPIO.HIGH):
             select = select + 1
             if (select >= len(parameters)): select = -1    
     if (select >= 0) and (select < len(parameters)):
         up_button_val = GPIO.input(up_button_pin)
         if (up_button_val != up_button_val_prev):
             up_button_val_prev = up_button_val
-            if (up_button_val == GPIO.LOW):
+            if (up_button_val == GPIO.HIGH):
                 if (select == 0):
                     Ppeak = Ppeak + 1
                     if (Ppeak > Ppeak_max): Ppeak = Ppeak_max
@@ -234,7 +244,7 @@ while True:
         down_button_val = GPIO.input(down_button_pin)
         if (down_button_val != down_button_val_prev):
             down_button_val_prev = down_button_val
-            if (down_button_val == GPIO.LOW):
+            if (down_button_val == GPIO.HIGH):
                 if (select == 0):
                     Ppeak = Ppeak - 1
                     if (Ppeak < Ppeak_min): Ppeak = Ppeak_min
@@ -249,9 +259,14 @@ while True:
                     if (inspi_ratio < inspi_ratio_min): inspi_ratio = inspi_ratio_min
 
     # Log file
-    line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-    file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val))
-    file.flush()
+    # File errors are not critical...
+    try:
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, breath_freq, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val))
+        file.flush()
+    except:
+        buz_pwm.ChangeDutyCycle(50)
+        pass
 
     if enable_old_gui:
         if ((t-t_cycle_start) != 0) and (count % 200 == 0): # Clear from time to time since the plots accumulate...
@@ -267,6 +282,7 @@ while True:
         time.sleep(0.1)
         if not p_sensor.read(ms5837.OSR_256):
             print('P sensor read failed!')
+            buz_pwm.ChangeDutyCycle(50)
             exit(1)
 
     print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p0, p, temperature) 
@@ -285,6 +301,7 @@ while True:
                 time.sleep(0.1)
                 if not p0_sensor.read(ms5837.OSR_256):
                     print('P0 sensor read failed!')
+                    buz_pwm.ChangeDutyCycle(50)
                     exit(1)
             p0 = p0_sensor.pressure() 
         inspi_end = False

@@ -51,7 +51,7 @@ while True:
 
 file.seek(0, os.SEEK_END)
 
-count = 0
+#count = 0
 while True:
     start_time = time.time()
 
@@ -116,11 +116,11 @@ while True:
 
     pg.QtGui.QApplication.processEvents()
 
-    count += 1
+    #count += 1
 
     end_time = time.time()
     #print("It has been %0.3f seconds since the loop started" %(end_time - start_time))
 
-win.close()
-
 file.close()
+
+win.close()

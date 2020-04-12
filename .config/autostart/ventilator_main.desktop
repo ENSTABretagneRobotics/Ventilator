@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=sh -c "sleep 15; cd ~/Share; sudo rm -Rf data.csv; while true; do sudo -E python main.py; sleep 1; done" &
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[en_US]=ventilator_main
+Name=ventilator_main
+Comment[en_US]=
+Comment=
