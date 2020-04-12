@@ -68,10 +68,8 @@ class HRSC(object):
         self.spi.open(self.spi_bus, 0)
         self.spi.mode = 0b01
         self.spi.close()
-
         self.reg_dr = 0
         self.reg_mode = 2
-
         # HRSC ROM values
         self.sensor_rom = [0] * 512 # 512 bytes of EEPROM
         self.read_eeprom()
@@ -92,7 +90,6 @@ class HRSC(object):
             self.sensor_rom[i+256] = self.spi.xfer([HRSC_EAD_EEPROM_MSB, i, 0x00], 10000)[2] # Read high page
         # Clear EEPROM SS , set mode 1 for ADC
         self.spi.close()
-
         return 0
         
     def adc_configure(self):
@@ -101,7 +98,6 @@ class HRSC(object):
         self.spi.mode = 1
         self.bytewr = 3
         self.regaddr = 0
-
         # Reset command
         test = self.spi.xfer([HRSC_ADC_RESET], 10000)
         time.sleep(1)
@@ -110,8 +106,7 @@ class HRSC(object):
         #print ("%02X" % self.sensor_rom[63]),
         #print ("%02X" % self.sensor_rom[65]),
         #print ("%02X" % self.sensor_rom[67]),
-        test = self.spi.xfer2([HRSC_ADC_WREG|self.regaddr << 3|self.bytewr & 0x03, self.sensor_rom[61], self.sensor_rom[63], self.sensor_rom[65], self.sensor_rom[67] ], 10000)
-        
+        test = self.spi.xfer2([HRSC_ADC_WREG|self.regaddr << 3|self.bytewr & 0x03, self.sensor_rom[61], self.sensor_rom[63], self.sensor_rom[65], self.sensor_rom[67] ], 10000)        
         self.spi.close()
         return 1
 
@@ -134,8 +129,7 @@ class HRSC(object):
         print(b, self.sensor_rom[27:31])
         print('Pressure min    :')
         b = self.conv_to_float(self.sensor_rom[31], self.sensor_rom[32], self.sensor_rom[33], self.sensor_rom[34])
-        print(b, self.sensor_rom[31:35])
-                
+        print(b, self.sensor_rom[31:35])                
         print('Pressure units  : %s' % str(bytearray(self.sensor_rom[35:40])))
         if (self.sensor_rom[40] == 68):
             print('Pressure ref    : Differential')
@@ -153,7 +147,6 @@ class HRSC(object):
         self.spi.mode = 1
         self.bytewr = 0
         self.regaddr = 1
-
         if (speed == 20):
             self.reg_dr = 0
         elif (speed == 45):
@@ -175,7 +168,6 @@ class HRSC(object):
         #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (command, self.reg_wr))
         time.sleep(0.1)
         test = self.spi.xfer([command, self.reg_wr], 10000)
-
         self.spi.close()
         return 1
 

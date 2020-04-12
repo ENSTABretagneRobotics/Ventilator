@@ -16,11 +16,12 @@ scaley = 100
 offsety = 50
 ###############################################################################
 
-nb_cols = 3 # Not counting the final '\n'
+nb_cols = 4 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
-flow_l_min_plot = [0]
+flow_inspi_l_min_plot = [0]
+flow_expi_l_min_plot = [0]
 
 win = pg.GraphicsWindow()
 #win.move(0, 0)
@@ -30,7 +31,9 @@ plt = win.addPlot()
 plt.showGrid(x = True, y = True)
 plt.setLabel('left', 'Flow (in L/min)')
 plt.setLabel('bottom', 'Time (in s)')
-c1 = plt.plot(t_plot, flow_l_min_plot, pen = "y")
+plt.addLegend()
+c1 = plt.plot(t_plot, flow_inspi_l_min_plot, pen = "g", name = 'Inspiration flow')
+c2 = plt.plot(t_plot, flow_expi_l_min_plot, pen = "r", name = 'Expiration flow')
 if (scaley != 0): 
     plt.enableAutoRange("y", False)
     plt.setYRange(-scaley+offsety, scaley+offsety, 0)
@@ -60,20 +63,25 @@ while True:
                     try:
                         t = float(cols[0])
                         t0 = float(cols[1])
-                        flow = float(cols[2])
+                        flow_inspi = float(cols[2])
+                        flow_expi = float(cols[3])
                         dt = t-t0
-                        flow_l_min = flow*60000.0
+                        flow_inspi_l_min = flow_inspi*60000.0
+                        flow_expi_l_min = -flow_expi*60000.0 # Opposite sign for the display...
                         if (dt < t_plot[-1]): 
                             # Reset if time seems to decrease...
                             t_plot = [0]
-                            flow_l_min_plot = [0]
+                            flow_inspi_l_min_plot = [0]
+                            flow_expi_l_min_plot = [0]
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
-                        flow_l_min_plot.append(flow_l_min)
+                        flow_inspi_l_min_plot.append(flow_inspi_l_min)
+                        flow_expi_l_min_plot.append(flow_expi_l_min)
                         if (t_plot[-1]-t_plot[0] > 2*scalex):
                             t_plot.pop(0)
-                            flow_l_min_plot.pop(0)
+                            flow_inspi_l_min_plot.pop(0)
+                            flow_expi_l_min_plot.pop(0)
                     except ValueError: 
                         time.sleep(delay)
                 else:
@@ -83,7 +91,8 @@ while True:
     except EOFError: 
         file.seek(0, os.SEEK_END) # Might be necessary on recent versions of Linux, see https://lists.gnu.org/archive/html/info-gnu/2018-08/msg00000.html...
    
-    c1.setData(t_plot, flow_l_min_plot)
+    c1.setData(t_plot, flow_inspi_l_min_plot)
+    c2.setData(t_plot, flow_expi_l_min_plot)
 
     pg.QtGui.QApplication.processEvents()
 
