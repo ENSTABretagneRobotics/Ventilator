@@ -1,6 +1,8 @@
 #!/usr/bin/python
 import ms5837 # From https://github.com/bluerobotics/ms5837-python
+import rsc # From https://github.com/tin-/ascp
 import RPi.GPIO as GPIO
+import numpy as np
 import math
 import sys
 import os
@@ -57,6 +59,15 @@ inspi_ratio_max = 0.95
 inspi_ratio_step = 0.05
 enable_p_ms5837 = True
 enable_p0_ms5837 = False
+enable_rsc = False
+R1 = 0.019/2.0
+R2 = 0.015/2.0
+A1 = math.pi*R1**2
+A2 = math.pi*R2**2
+delay = 0.030
+filter_coef = 0.99
+nb_count = 500
+debug = True
 ###############################################################################
 
 # Software PWM init (for buzzer and status LED)
@@ -150,6 +161,33 @@ while (i < 5):
             print('P0 sensor read failed!')
     i = i+1
 
+# Honeywell RSC
+flow_inspi, temperature_inspi = 0, 25
+flow_expi, temperature_expi = 0, 25
+if enable_rsc:
+    flow_inspi_rsc = rsc.HRSC(spi_bus=0)
+    flow_expi_rsc = rsc.HRSC(spi_bus=3)
+    time.sleep(delay)
+    flow_inspi_rsc.sensor_info()
+    flow_expi_rsc.sensor_info()
+    time.sleep(delay)
+    flow_inspi_rsc.adc_configure()
+    flow_expi_rsc.adc_configure()
+    time.sleep(delay)
+    flow_inspi_rsc.set_speed(2000) #in SPS
+    flow_expi_rsc.set_speed(2000) #in SPS
+    time.sleep(delay)
+    raw_pres_inspi = flow_inspi_rsc.read_pressure(delay)
+    raw_pres_expi = flow_expi_rsc.read_pressure(delay)
+    time.sleep(delay)
+    raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
+    raw_temp_expi = flow_expi_rsc.read_temp(delay)
+    time.sleep(delay)
+    pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pres_inspi, raw_temp_inspi)
+    pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pres_expi, raw_temp_expi)
+    pressure_offset_inspi = pressure_inspi
+    pressure_offset_expi = pressure_expi
+
 respi_rate_converted = respi_rate*(1.0/60.0) # In breaths/s
 cycle_duration = 1.0/respi_rate_converted
 inspi_duration = inspi_ratio*cycle_duration
@@ -159,11 +197,13 @@ t = timer()
 t_prev = t
 t0 = t
 t_cycle_start = t
+p = 1000
 if enable_p_ms5837: p = p_ms5837.pressure()
 p_prev = p
 p_cycle_start = p
+p0 = p
 if enable_p0_ms5837: p0 = p0_ms5837.pressure() 
-else: p0 = p
+temperature = 25
 if enable_p_ms5837: temperature = p_ms5837.temperature()
 Ppeak_reached = False
 PEEP_reached = False
@@ -178,7 +218,7 @@ pwm1_ns = pwm1_ns_min
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;flow_inspi (in m3/s);flow_expi (in m3/s);temperature_inspi (in C);temperature_expi (in C);\n')
 except:
     pass
 
@@ -273,16 +313,22 @@ while True:
                 if (select == 3):
                     inspi_ratio = inspi_ratio - inspi_ratio_step
                     if (inspi_ratio < inspi_ratio_min): inspi_ratio = inspi_ratio_min
-
-    # Log file
-    # File errors are not critical...
-    try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val))
-        file.flush()
-    except:
-        buz_pwm.ChangeDutyCycle(50)
  
+    # Sensors
+    if enable_rsc:
+        try:
+            flow_inspi_rsc.pressure_request()
+        except:
+            print('RSC I sensor read failed!')
+            time.sleep(0.1)
+            flow_inspi_rsc.pressure_request()
+        try:
+            flow_expi_rsc.pressure_request()
+        except:
+            print('RSC E sensor read failed!')
+            time.sleep(0.1)
+            flow_expi_rsc.pressure_request()
+    time.sleep(delay-0.005)
     if enable_p_ms5837:
         try:
             if not p_ms5837.read(ms5837.OSR_256):
@@ -299,9 +345,47 @@ while True:
                 print('P sensor read failed!')
                 buz_pwm.ChangeDutyCycle(50)
                 exit(1)
+    else:
+        time.sleep(0.005)
+    if enable_rsc:
+        try:
+            raw_pres_inspi = flow_inspi_rsc.pressure_reply()
+        except:
+            print('RSC I sensor read failed!')
+            time.sleep(0.1)
+            raw_pres_inspi = flow_inspi_rsc.pressure_reply()
+        try:
+            raw_pres_expi = flow_expi_rsc.pressure_reply()
+        except:
+            print('RSC E sensor read failed!')
+            time.sleep(0.1)
+            raw_pres_expi = flow_expi_rsc.pressure_reply()
+        pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pres_inspi, raw_temp_inspi)
+        pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pres_expi, raw_temp_expi)
+        if (count < nb_count): # Filter to estimate the offset in the beginning...
+            pressure_offset_inspi = (1-filter_coef)*pressure_inspi+filter_coef*pressure_offset_inspi
+            pressure_offset_expi = (1-filter_coef)*pressure_expi+filter_coef*pressure_offset_expi
+        pressure_inspi = pressure_inspi-pressure_offset_inspi
+        pressure_expi = pressure_expi-pressure_offset_expi
+        rho_air_inspi = 1.292*(273.15/(273.15+temperature_inspi)) # In Kg/m3
+        rho_air_expi = 1.292*(273.15/(273.15+temperature_expi)) # In Kg/m3
+        vel_inspi = np.sign(pressure_inspi)*math.sqrt(2*(np.abs(pressure_inspi)*248.84)/(rho_air_inspi*((A1/A2)**2-1)))
+        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(np.abs(pressure_expi)*248.84)/(rho_air_expi*((A1/A2)**2-1)))
+        flow_inspi = A1*vel_inspi
+        flow_expi = A1*vel_expi
 
-    print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p0, p, temperature) 
+    # Log file
+    # File errors are not critical...
+    try:
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, flow_inspi, flow_expi, temperature_inspi, temperature_expi))
+        file.flush()
+    except:
+        buz_pwm.ChangeDutyCycle(50)
+
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p0, p, temperature) 
     
+    # Prepare next loop...
     t_prev = t
     t = timer()
     p_prev = p
@@ -328,5 +412,18 @@ while True:
                     buz_pwm.ChangeDutyCycle(50)
                     exit(1)
             p0 = p0_ms5837.pressure() 
+        if enable_rsc:
+            try:
+                raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
+            except:
+                print('RSC I sensor read failed!')
+                time.sleep(0.1)
+                raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
+            try:
+                raw_temp_expi = flow_expi_rsc.read_temp(delay)
+            except:
+                print('RSC E sensor read failed!')
+                time.sleep(0.1)
+                raw_temp_expi = flow_expi_rsc.read_temp(delay)
         inspi_end = False
     count = count+1

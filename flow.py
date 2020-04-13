@@ -18,7 +18,7 @@ delay = 0.030
 filter_coef = 0.99
 
 file = open('data_flow.csv', 'a')
-file.write('t (in s);t0;flow (in m3/s);\n')
+file.write('t (in s);t0;flow_inspi (in m3/s);flow_expi (in m3/s);\n')
 
 flow_inspi_rsc = rsc.HRSC(spi_bus=0)
 flow_expi_rsc = rsc.HRSC(spi_bus=3)
@@ -57,14 +57,17 @@ nb_count = 500
 count = 0
 while (True):
     dt = t-t_prev
-    raw_pres_inspi = flow_inspi_rsc.read_pressure(delay)
-    raw_pres_expi = flow_expi_rsc.read_pressure(delay)
+    flow_inspi_rsc.pressure_request()
+    flow_expi_rsc.pressure_request()
+    time.sleep(delay)
+    raw_pres_inspi = flow_inspi_rsc.pressure_reply()
+    raw_pres_expi = flow_expi_rsc.pressure_reply()
     if (count % 100 == 0):         
         raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
         raw_temp_expi = flow_expi_rsc.read_temp(delay)
     pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pres_inspi, raw_temp_inspi)
     pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pres_expi, raw_temp_expi)
-    if (count < nb_count): 
+    if (count < nb_count): # Filter to estimate the offset in the beginning...
         pressure_offset_inspi = (1-filter_coef)*pressure_inspi+filter_coef*pressure_offset_inspi
         pressure_offset_expi = (1-filter_coef)*pressure_expi+filter_coef*pressure_offset_expi
     pressure_inspi = pressure_inspi-pressure_offset_inspi

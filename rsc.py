@@ -164,10 +164,10 @@ class HRSC(object):
         reg_sensor = 0 # pressure
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
-        command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (command, self.reg_wr))
+        self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
+        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
         time.sleep(0.1)
-        test = self.spi.xfer([command, self.reg_wr], 10000)
+        test = self.spi.xfer([self.command, self.reg_wr], 10000)
         self.spi.close()
         return 1
 
@@ -185,7 +185,7 @@ class HRSC(object):
 #            o.write (time.strftime("%d/%m/%Y-%H:%M:%S;")+('%4.5f;%3.3f;\r\n' % (0.0, temp)))
         return temp
     
-    def read_temp(self, delay):
+    def temp_request(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
         self.spi.mode = 1
@@ -196,21 +196,23 @@ class HRSC(object):
         reg_sensor = 1 # temperature
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
-        command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (command, self.reg_wr))
-        test = self.spi.xfer([command, self.reg_wr], 10000)
-
-#        with open('rsc_temp.dsv', 'wb') as o:
-#            o.write ("date;press;temp;\r\n")
-
-        time.sleep(delay)
-        adc_data = self.spi.xfer([0,0,command, self.reg_wr], 10000)
+        self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
+        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
+        test = self.spi.xfer([self.command, self.reg_wr], 10000)
+    
+    def temp_reply(self):
+        adc_data = self.spi.xfer([0,0,self.command, self.reg_wr], 10000)
         #print "RDATA = ",
         #print adc_data
         temp_data = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
         tempval = self.convert_temp(temp_data)
         self.spi.close()
         return tempval
+    
+    def read_temp(self, delay):
+        self.temp_request()
+        time.sleep(delay)
+        return self.temp_reply()
 
     def twos_complement(self, byte_arr):
         a = byte_arr[0]; b = byte_arr[1]; c = byte_arr[2]
@@ -220,7 +222,7 @@ class HRSC(object):
         #print(hex(a), hex(b), hex(c), neg, out)
         return out
 
-    def read_pressure(self, delay):
+    def pressure_request(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
         self.spi.mode = 1
@@ -230,18 +232,16 @@ class HRSC(object):
         reg_sensor = 0 # Pressure readout
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
-        command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (command, self.reg_wr))
-        test = self.spi.xfer([command, self.reg_wr], 10000)
+        self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
+        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
+        test = self.spi.xfer([self.command, self.reg_wr], 10000)
 
-        time.sleep(delay)
-        adc_data = self.spi.xfer([0,0, command, self.reg_wr], 10000)
+    def pressure_reply(self):
+        adc_data = self.spi.xfer([0,0, self.command, self.reg_wr], 10000)
         #print hex(adc_data[0]),hex(adc_data[1]),hex(adc_data[2]),
         press = (self.twos_complement(adc_data)) # 24-bit 2's complement math
         #print float(press) / pow(2,23)
-
         self.spi.close()
-
         if ((adc_data[0]<<16|adc_data[1]<<8|adc_data[2]) > 0x7FFFFF):
         #    print "NEgative"
              pdatad = ((adc_data[0]<<16|adc_data[1]<<8|adc_data[2])) - 0x1000000
@@ -250,6 +250,11 @@ class HRSC(object):
         #    print "POSiTive"
              pdatad = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
              return pdatad
+
+    def read_pressure(self, delay):
+        self.pressure_request()
+        time.sleep(delay)
+        return self.pressure_reply()
         
     def comp_readings(self, raw_pressure, raw_temp):
         OffsetCoefficient0 = self.conv_to_float(self.sensor_rom[130], self.sensor_rom[131], self.sensor_rom[132], self.sensor_rom[133])
