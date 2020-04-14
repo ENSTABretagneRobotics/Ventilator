@@ -65,8 +65,9 @@ R2 = 0.011651/2.0
 A1 = math.pi*R1**2
 A2 = math.pi*R2**2
 delay = 0.030
-filter_coef = 0.99
-nb_count = 500
+filter_coef = 0.9
+nb_count = 100
+flow_thresh = 5 # In L/min
 debug = True
 ###############################################################################
 
@@ -162,8 +163,8 @@ while (i < 5):
     i = i+1
 
 # Honeywell RSC
-flow_inspi, temperature_inspi = 0, 25
-flow_expi, temperature_expi = 0, 25
+pressure_inspi, temperature_inspi, flow_inspi, vol_inspi= 0, 25, 0, 0
+pressure_expi, temperature_expi, flow_expi, vol_expi = 0, 25, 0, 0
 if enable_rsc:
     flow_inspi_rsc = rsc.HRSC(spi_bus=3)
     flow_expi_rsc = rsc.HRSC(spi_bus=0)
@@ -193,8 +194,9 @@ cycle_duration = 1.0/respi_rate_converted
 inspi_duration = inspi_ratio*cycle_duration
 expi_duration = cycle_duration-inspi_duration
 
+t_prev = timer()
 t = timer()
-t_prev = t
+dt = t-t_prev
 t0 = t
 t_cycle_start = t
 p = 1000
@@ -220,7 +222,7 @@ pwm1_ns = pwm1_ns_min
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;flow_inspi (in m3/s);flow_expi (in m3/s);temperature_inspi (in C);temperature_expi (in C);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;pressure_inspi (in inchH2O);pressure_expi (in inchH2O);temperature_inspi (in C);temperature_expi (in C);flow_inspi (in L/min);flow_expi (in L/min);vol_inspi (in m3);vol_expi (in m3);\n')
 except:
     pass
 
@@ -369,27 +371,30 @@ while True:
             pressure_offset_expi = (1-filter_coef)*pressure_expi+filter_coef*pressure_offset_expi
         pressure_inspi = pressure_inspi-pressure_offset_inspi
         pressure_expi = pressure_expi-pressure_offset_expi
-        rho_air_inspi = 1.292*(273.15/(273.15+temperature_inspi)) # In Kg/m3
-        rho_air_expi = 1.292*(273.15/(273.15+temperature_expi)) # In Kg/m3
+        rho_air_inspi = 1.292*(273.15/(273.15+temperature_inspi)) # In kg/m3
+        rho_air_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
         vel_inspi = np.sign(pressure_inspi)*math.sqrt(2*(np.abs(pressure_inspi)*248.84)/(rho_air_inspi*((A1/A2)**2-1)))
         vel_expi = np.sign(pressure_expi)*math.sqrt(2*(np.abs(pressure_expi)*248.84)/(rho_air_expi*((A1/A2)**2-1)))
         flow_inspi = A1*vel_inspi
         flow_expi = A1*vel_expi
+        if (np.abs(flow_inspi) > flow_thresh/60000.0): vol_inspi = vol_inspi + dt*flow_inspi
+        if (np.abs(flow_expi) > flow_thresh/60000.0): vol_expi = vol_expi + dt*flow_expi
 
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, flow_inspi, flow_expi, temperature_inspi, temperature_expi))
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, pressure_inspi, pressure_expi, temperature_inspi, temperature_expi, flow_inspi*60000.0, flow_expi*60000.0, vol_inspi, vol_expi))
         file.flush()
     except:
         buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C') % (t-t0, t-t_prev, p0, temperature0, p, temperature) 
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C') % (t-t0, dt, p0, temperature0, p, temperature) 
     
     # Prepare next loop...
     t_prev = t
     t = timer()
+    dt = t-t_prev
     p_prev = p
     if enable_p_ms5837:
         p = p_ms5837.pressure()
@@ -417,16 +422,31 @@ while True:
             temperature0 = p0_ms5837.temperature()
         if enable_rsc:
             try:
-                raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
+                flow_inspi_rsc.temp_request()
             except:
                 print('RSC I sensor read failed!')
                 time.sleep(0.1)
-                raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
+                flow_inspi_rsc.temp_request()
             try:
-                raw_temp_expi = flow_expi_rsc.read_temp(delay)
+                flow_expi_rsc.temp_request()
             except:
                 print('RSC E sensor read failed!')
                 time.sleep(0.1)
-                raw_temp_expi = flow_expi_rsc.read_temp(delay)
+                flow_expi_rsc.temp_request()
+            time.sleep(delay)
+            try:
+                raw_temp_inspi = flow_inspi_rsc.temp_reply()
+            except:
+                print('RSC I sensor read failed!')
+                time.sleep(0.1)
+                raw_temp_inspi = flow_inspi_rsc.temp_reply()
+            try:
+                raw_temp_expi = flow_expi_rsc.temp_reply()
+            except:
+                print('RSC E sensor read failed!')
+                time.sleep(0.1)
+                raw_temp_expi = flow_expi_rsc.temp_reply()
+        vol_inspi = 0
+        vol_expi = 0
         inspi_end = False
     count = count+1

@@ -18,7 +18,7 @@ scale2y = 100
 offset2y = 20
 ###############################################################################
 
-nb_cols = 20 # Not counting the final '\n'
+nb_cols = 24 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -27,19 +27,21 @@ valve_inspi_plot = [0]
 valve_expi_plot = [0]
 flow_inspi_l_min_plot = [0]
 flow_expi_l_min_plot = [0]
+vol_l_plot = [0]
 
 win = pg.GraphicsWindow()
 win.move(0, 0)
 win.resize(800, 420)
-win.setWindowTitle('Pressure, flow')
+win.setWindowTitle('Pressure, flow, volume')
 plt = win.addPlot()
 plt2 = win.addPlot()
 plt.showGrid(x = True, y = True)
 plt2.showGrid(x = True, y = True)
-plt.setTitle('Temperature: ??.?? C', **{'color': '#FFF', 'size': '10pt'})
-plt2.setTitle('Temp. I: ??.?? C, Temp. E: ??.?? C', **{'color': '#FFF', 'size': '10pt'})
+plt.setTitle('Temperature: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
+plt2.setTitle('Temp. I: 25.00 C, Temp. E: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
 plt.setLabel('left', 'Pressure (in cmH2O)', **{'color': '#FFF', 'font-size': '10pt'})
 plt2.setLabel('left', 'Flow (in L/min)', **{'color': '#FFF', 'font-size': '10pt'})
+plt2.setLabel('right', 'Volume (in cl)', **{'color': '#FFF', 'font-size': '10pt'})
 plt.setLabel('bottom', 'Time (in s)', **{'color': '#FFF', 'font-size': '10pt'})
 plt2.setLabel('bottom', 'Time (in s)', **{'color': '#FFF', 'font-size': '10pt'})
 plt.addLegend(size = (0, 0), offset = (4, 1))
@@ -48,6 +50,7 @@ font = QtGui.QFont()
 font.setPixelSize(11)
 plt.getAxis("left").tickFont = font
 plt2.getAxis("left").tickFont = font
+plt2.getAxis("right").tickFont = font
 plt.getAxis("bottom").tickFont = font
 plt2.getAxis("bottom").tickFont = font
 c1 = plt.plot(t_plot, p_cmh2o_plot, pen = "y", name = 'Pressure')
@@ -55,6 +58,7 @@ c2 = plt.plot(t_plot, valve_inspi_plot, pen = "c", name = 'Inspiration valve')
 c3 = plt.plot(t_plot, valve_expi_plot, pen = "m", name = 'Expiration valve')
 c4 = plt2.plot(t_plot, flow_inspi_l_min_plot, pen = "g", name = 'Inspiration flow')
 c5 = plt2.plot(t_plot, flow_expi_l_min_plot, pen = "r", name = 'Expiration flow')
+c6 = plt2.plot(t_plot, vol_l_plot, pen = "m", name = 'Volume')
 for item in plt.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
@@ -106,14 +110,19 @@ while True:
                         inspi_ratio = float(cols[10])
                         valve_inspi = float(cols[14])
                         valve_expi = float(cols[15])
-                        flow_inspi = float(cols[16])
-                        flow_expi = float(cols[17])
+                        pressure_inspi = float(cols[16])
+                        pressure_expi = float(cols[17])
                         temperature_inspi = float(cols[18])
                         temperature_expi = float(cols[19])
+                        flow_inspi = float(cols[20])
+                        flow_expi = float(cols[21])
+                        vol_inspi = float(cols[22])
+                        vol_expi = float(cols[23])
                         dt = t-t0
                         p_cmh2o = (float(cols[4])-float(cols[2]))*1.01972
-                        flow_inspi_l_min = flow_inspi*60000.0
-                        flow_expi_l_min = flow_expi*60000.0
+                        flow_inspi_l_min = flow_inspi
+                        flow_expi_l_min = flow_expi
+                        vol_l = (vol_inspi+vol_expi)*1000.0
                         if (dt < t_plot[-1]): 
                             # Reset if time seems to decrease...
                             t_plot = [0]
@@ -122,6 +131,7 @@ while True:
                             valve_expi_plot = [0]
                             flow_inspi_l_min_plot = [0]
                             flow_expi_l_min_plot = [0]
+                            vol_l_plot = [0]
                         if (select == 0): 
                             wintitle = '[Ppeak: {:d}]'
                             win.setWindowTitle(wintitle.format(int(Ppeak)))
@@ -147,6 +157,7 @@ while True:
                         valve_expi_plot.append(10.0*valve_expi)
                         flow_inspi_l_min_plot.append(flow_inspi_l_min)
                         flow_expi_l_min_plot.append(flow_expi_l_min)
+                        vol_l_plot.append(100.0*vol_l)
                         if (t_plot[-1]-t_plot[0] > 2*scalex):
                             t_plot.pop(0)
                             p_cmh2o_plot.pop(0)
@@ -154,6 +165,7 @@ while True:
                             valve_expi_plot.pop(0)
                             flow_inspi_l_min_plot.pop(0)
                             flow_expi_l_min_plot.pop(0)
+                            vol_l_plot.pop(0)
                     except ValueError: 
                         time.sleep(delay)
                 else:
@@ -168,6 +180,7 @@ while True:
     c3.setData(t_plot, valve_expi_plot)
     c4.setData(t_plot, flow_inspi_l_min_plot)
     c5.setData(t_plot, flow_expi_l_min_plot)
+    c6.setData(t_plot, vol_l_plot)
 
     pg.QtGui.QApplication.processEvents()
 
