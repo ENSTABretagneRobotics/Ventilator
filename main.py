@@ -58,10 +58,10 @@ inspi_ratio_min = 0.05
 inspi_ratio_max = 0.95
 inspi_ratio_step = 0.05
 enable_p_ms5837 = True
-enable_p0_ms5837 = False
-enable_rsc = False
-R1 = 0.019/2.0
-R2 = 0.015/2.0
+enable_p0_ms5837 = True
+enable_rsc = True
+R1 = 0.019100/2.0
+R2 = 0.011651/2.0
 A1 = math.pi*R1**2
 A2 = math.pi*R2**2
 delay = 0.030
@@ -165,8 +165,8 @@ while (i < 5):
 flow_inspi, temperature_inspi = 0, 25
 flow_expi, temperature_expi = 0, 25
 if enable_rsc:
-    flow_inspi_rsc = rsc.HRSC(spi_bus=0)
-    flow_expi_rsc = rsc.HRSC(spi_bus=3)
+    flow_inspi_rsc = rsc.HRSC(spi_bus=3)
+    flow_expi_rsc = rsc.HRSC(spi_bus=0)
     time.sleep(delay)
     flow_inspi_rsc.sensor_info()
     flow_expi_rsc.sensor_info()
@@ -205,6 +205,8 @@ p0 = p
 if enable_p0_ms5837: p0 = p0_ms5837.pressure() 
 temperature = 25
 if enable_p_ms5837: temperature = p_ms5837.temperature()
+temperature0 = temperature
+if enable_p0_ms5837: temperature0 = p0_ms5837.temperature()
 Ppeak_reached = False
 PEEP_reached = False
 inspi_end = False
@@ -218,7 +220,7 @@ pwm1_ns = pwm1_ns_min
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;flow_inspi (in m3/s);flow_expi (in m3/s);temperature_inspi (in C);temperature_expi (in C);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;flow_inspi (in m3/s);flow_expi (in m3/s);temperature_inspi (in C);temperature_expi (in C);\n')
 except:
     pass
 
@@ -377,13 +379,13 @@ while True:
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, flow_inspi, flow_expi, temperature_inspi, temperature_expi))
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, flow_inspi, flow_expi, temperature_inspi, temperature_expi))
         file.flush()
     except:
         buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tP: %0.1f mbar \tT: %0.2f C ') % (t-t0, t-t_prev, p0, p, temperature) 
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C') % (t-t0, t-t_prev, p0, temperature0, p, temperature) 
     
     # Prepare next loop...
     t_prev = t
@@ -411,7 +413,8 @@ while True:
                     print('P0 sensor read failed!')
                     buz_pwm.ChangeDutyCycle(50)
                     exit(1)
-            p0 = p0_ms5837.pressure() 
+            p0 = p0_ms5837.pressure()
+            temperature0 = p0_ms5837.temperature()
         if enable_rsc:
             try:
                 raw_temp_inspi = flow_inspi_rsc.read_temp(delay)

@@ -8,8 +8,8 @@ import threading
 from timeit import default_timer as timer
 import rsc # From https://github.com/tin-/ascp
 
-R1 = 0.019/2.0
-R2 = 0.015/2.0
+R1 = 0.019100/2.0
+R2 = 0.011651/2.0
 
 A1 = math.pi*R1**2
 A2 = math.pi*R2**2
@@ -20,8 +20,8 @@ filter_coef = 0.99
 file = open('data_flow.csv', 'a')
 file.write('t (in s);t0;flow_inspi (in m3/s);flow_expi (in m3/s);\n')
 
-flow_inspi_rsc = rsc.HRSC(spi_bus=0)
-flow_expi_rsc = rsc.HRSC(spi_bus=3)
+flow_inspi_rsc = rsc.HRSC(spi_bus=3)
+flow_expi_rsc = rsc.HRSC(spi_bus=0)
 time.sleep(0.1)
 print('Read the ADC settings and the compensation values from EEPROM.')
 flow_inspi_rsc.sensor_info()

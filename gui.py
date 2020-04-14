@@ -18,7 +18,7 @@ scale2y = 100
 offset2y = 20
 ###############################################################################
 
-nb_cols = 19 # Not counting the final '\n'
+nb_cols = 20 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -96,23 +96,24 @@ while True:
                         t = float(cols[0])
                         t0 = float(cols[1])
                         p0 = float(cols[2])
-                        p = float(cols[3])
-                        temperature = float(cols[4])
-                        select = float(cols[5])
-                        Ppeak = float(cols[6])
-                        PEEP = float(cols[7])
-                        respi_rate = float(cols[8])
-                        inspi_ratio = float(cols[9])
-                        valve_inspi = float(cols[13])
-                        valve_expi = float(cols[14])
-                        flow_inspi = float(cols[15])
-                        flow_expi = float(cols[16])
-                        temperature_inspi = float(cols[17])
-                        temperature_expi = float(cols[18])
+                        temperature0 = float(cols[3])
+                        p = float(cols[4])
+                        temperature = float(cols[5])
+                        select = float(cols[6])
+                        Ppeak = float(cols[7])
+                        PEEP = float(cols[8])
+                        respi_rate = float(cols[9])
+                        inspi_ratio = float(cols[10])
+                        valve_inspi = float(cols[14])
+                        valve_expi = float(cols[15])
+                        flow_inspi = float(cols[16])
+                        flow_expi = float(cols[17])
+                        temperature_inspi = float(cols[18])
+                        temperature_expi = float(cols[19])
                         dt = t-t0
-                        p_cmh2o = (float(cols[3])-float(cols[2]))*1.01972
+                        p_cmh2o = (float(cols[4])-float(cols[2]))*1.01972
                         flow_inspi_l_min = flow_inspi*60000.0
-                        flow_expi_l_min = -flow_expi*60000.0 # Opposite sign for the display...
+                        flow_expi_l_min = flow_expi*60000.0
                         if (dt < t_plot[-1]): 
                             # Reset if time seems to decrease...
                             t_plot = [0]
