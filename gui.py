@@ -18,7 +18,7 @@ scale2y = 100
 offset2y = 20
 ###############################################################################
 
-nb_cols = 24 # Not counting the final '\n'
+nb_cols = 28 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -27,6 +27,7 @@ valve_inspi_plot = [0]
 valve_expi_plot = [0]
 flow_inspi_l_min_plot = [0]
 flow_expi_l_min_plot = [0]
+flow_O2_l_min_plot = [0]
 vol_l_plot = [0]
 
 win = pg.GraphicsWindow()
@@ -58,7 +59,8 @@ c2 = plt.plot(t_plot, valve_inspi_plot, pen = "c", name = 'Inspiration valve')
 c3 = plt.plot(t_plot, valve_expi_plot, pen = "m", name = 'Expiration valve')
 c4 = plt2.plot(t_plot, flow_inspi_l_min_plot, pen = "g", name = 'Inspiration flow')
 c5 = plt2.plot(t_plot, flow_expi_l_min_plot, pen = "r", name = 'Expiration flow')
-c6 = plt2.plot(t_plot, vol_l_plot, pen = "m", name = 'Volume')
+c6 = plt2.plot(t_plot, flow_O2_l_min_plot, pen = "c", name = 'Oxygen flow')
+c7 = plt2.plot(t_plot, vol_l_plot, pen = "m", name = 'Volume')
 for item in plt.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
@@ -112,17 +114,22 @@ while True:
                         valve_expi = float(cols[15])
                         pressure_inspi = float(cols[16])
                         pressure_expi = float(cols[17])
-                        temperature_inspi = float(cols[18])
-                        temperature_expi = float(cols[19])
-                        flow_inspi = float(cols[20])
-                        flow_expi = float(cols[21])
-                        vol_inspi = float(cols[22])
-                        vol_expi = float(cols[23])
+                        pressure_O2 = float(cols[18])
+                        temperature_inspi = float(cols[19])
+                        temperature_expi = float(cols[20])
+                        temperature_O2 = float(cols[21])
+                        flow_inspi = float(cols[22])
+                        flow_expi = float(cols[23])
+                        flow_O2 = float(cols[24])
+                        vol_inspi = float(cols[25])
+                        vol_expi = float(cols[26])
+                        vol_O2 = float(cols[27])
                         dt = t-t0
                         p_cmh2o = (float(cols[4])-float(cols[2]))*1.01972
                         flow_inspi_l_min = flow_inspi
                         flow_expi_l_min = flow_expi
-                        vol_l = (vol_inspi+vol_expi)*1000.0
+                        flow_O2_l_min = flow_O2
+                        vol_l = (vol_inspi+vol_expi)
                         if (dt < t_plot[-1]): 
                             # Reset if time seems to decrease...
                             t_plot = [0]
@@ -131,6 +138,7 @@ while True:
                             valve_expi_plot = [0]
                             flow_inspi_l_min_plot = [0]
                             flow_expi_l_min_plot = [0]
+                            flow_O2_l_min_plot = [0]
                             vol_l_plot = [0]
                         if (select == 0): 
                             wintitle = '[Ppeak: {:d}]'
@@ -148,7 +156,7 @@ while True:
                             wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E ratio = {}'
                             win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio))
                         plt.setTitle('Temperature: {:.2f} C'.format(temperature))
-                        plt2.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature_inspi, temperature_expi))
+                        plt2.setTitle('Temp. I: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_inspi, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
@@ -157,6 +165,7 @@ while True:
                         valve_expi_plot.append(10.0*valve_expi)
                         flow_inspi_l_min_plot.append(flow_inspi_l_min)
                         flow_expi_l_min_plot.append(flow_expi_l_min)
+                        flow_O2_l_min_plot.append(flow_O2_l_min)
                         vol_l_plot.append(100.0*vol_l)
                         if (t_plot[-1]-t_plot[0] > 2*scalex):
                             t_plot.pop(0)
@@ -165,6 +174,7 @@ while True:
                             valve_expi_plot.pop(0)
                             flow_inspi_l_min_plot.pop(0)
                             flow_expi_l_min_plot.pop(0)
+                            flow_O2_l_min_plot.pop(0)
                             vol_l_plot.pop(0)
                     except ValueError: 
                         time.sleep(delay)
@@ -180,7 +190,8 @@ while True:
     c3.setData(t_plot, valve_expi_plot)
     c4.setData(t_plot, flow_inspi_l_min_plot)
     c5.setData(t_plot, flow_expi_l_min_plot)
-    c6.setData(t_plot, vol_l_plot)
+    c6.setData(t_plot, flow_O2_l_min_plot)
+    c7.setData(t_plot, vol_l_plot)
 
     pg.QtGui.QApplication.processEvents()
 

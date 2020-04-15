@@ -90,9 +90,8 @@ class HRSC(object):
             self.sensor_rom[i+256] = self.spi.xfer([HRSC_EAD_EEPROM_MSB, i, 0x00], 10000)[2] # Read high page
         # Clear EEPROM SS , set mode 1 for ADC
         self.spi.close()
-        return 0
         
-    def adc_configure(self):
+    def reset(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
         self.spi.mode = 1
@@ -100,7 +99,14 @@ class HRSC(object):
         self.regaddr = 0
         # Reset command
         test = self.spi.xfer([HRSC_ADC_RESET], 10000)
-        time.sleep(1)
+        self.spi.close()
+        
+    def adc_configure(self):
+        # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
+        self.spi.open(self.spi_bus, 0)
+        self.spi.mode = 1
+        self.bytewr = 3
+        self.regaddr = 0
         # Write configuration registers from ROM
         #print ("%02X" % self.sensor_rom[61]),
         #print ("%02X" % self.sensor_rom[63]),
@@ -108,7 +114,6 @@ class HRSC(object):
         #print ("%02X" % self.sensor_rom[67]),
         test = self.spi.xfer2([HRSC_ADC_WREG|self.regaddr << 3|self.bytewr & 0x03, self.sensor_rom[61], self.sensor_rom[63], self.sensor_rom[65], self.sensor_rom[67] ], 10000)        
         self.spi.close()
-        return 1
 
     def conv_to_float(self, byte1, byte2, byte3, byte4):
         temp = struct.pack("BBBB", byte1,byte2,byte3,byte4)
@@ -139,7 +144,6 @@ class HRSC(object):
         b = self.conv_to_short(self.sensor_rom[450], self.sensor_rom[451])
         print(b, self.sensor_rom[450:452])
         print('\033[0;39m')
-        return 1
     
     def set_speed(self, speed):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
@@ -166,10 +170,8 @@ class HRSC(object):
         # Write configuration register
         self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
         #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
-        time.sleep(0.1)
         test = self.spi.xfer([self.command, self.reg_wr], 10000)
         self.spi.close()
-        return 1
 
     def convert_temp(self, raw_temp):
         raw = (raw_temp & 0xFFFF00) >> 10
@@ -192,7 +194,6 @@ class HRSC(object):
         self.bytewr = 0
         self.regaddr = 1
         self.spi.max_speed_hz = 10000
-
         reg_sensor = 1 # temperature
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
@@ -228,7 +229,6 @@ class HRSC(object):
         self.spi.mode = 1
         self.bytewr = 0
         self.regaddr = 1
-
         reg_sensor = 0 # Pressure readout
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register

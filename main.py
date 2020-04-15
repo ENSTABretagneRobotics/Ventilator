@@ -25,9 +25,11 @@ from timeit import default_timer as timer
 # Add in /boot/config.txt (SPI6 will appear as 3...?)
 #dtparam=i2c_arm=on
 #dtoverlay=i2c-gpio,bus=6,i2c_gpio_delay_us=1,i2c_gpio_sda=22,i2c_gpio_scl=23
+##dtoverlay=i2c-gpio,bus=3,i2c_gpio_delay_us=1,i2c_gpio_sda=4,i2c_gpio_scl=5
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
 #dtparam=spi=on
 #dtoverlay=spi0-2cs
+##dtoverlay=spi3-2cs
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
 # Then reboot and
@@ -59,15 +61,17 @@ inspi_ratio_max = 0.95
 inspi_ratio_step = 0.05
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
-enable_rsc = True
+enable_inspi_rsc = True
+enable_expi_rsc = True
+enable_O2_rsc = False
 R1 = 0.019100/2.0
 R2 = 0.011651/2.0
+#R2 = 0.006500/2.0
 A1 = math.pi*R1**2
 A2 = math.pi*R2**2
 delay = 0.030
 filter_coef = 0.9
-nb_count = 100
-flow_thresh = 5 # In L/min
+flow_thresh = 10 # In L/min
 debug = True
 ###############################################################################
 
@@ -120,7 +124,6 @@ down_button_val_prev = down_button_val
 # Bar02
 if enable_p_ms5837:
     p_ms5837 = ms5837.MS5837_02BA(bus=1)
-    time.sleep(0.1)
     try:
         if not p_ms5837.init():
             print('P sensor could not be initialized')
@@ -136,7 +139,6 @@ if enable_p_ms5837:
             exit(1)
 if enable_p0_ms5837:
     p0_ms5837 = ms5837.MS5837_02BA(bus=6)
-    time.sleep(0.1)
     try:
         if not p0_ms5837.init():
             print('P0 sensor could not be initialized')
@@ -150,7 +152,6 @@ if enable_p0_ms5837:
         if not p0_ms5837.init():
             print('P0 sensor could not be initialized')
             exit(1)
-time.sleep(0.1)
 # The very first pressure measurements might be wrong...
 i = 0
 while (i < 5):
@@ -163,39 +164,102 @@ while (i < 5):
     i = i+1
 
 # Honeywell RSC
-pressure_inspi, temperature_inspi, flow_inspi, vol_inspi= 0, 25, 0, 0
-pressure_expi, temperature_expi, flow_expi, vol_expi = 0, 25, 0, 0
-if enable_rsc:
+pressure_inspi, temperature_inspi, flow_inspi, vol_inspi, pressure_offset_inspi = 0, 25, 0, 0, 0
+pressure_expi, temperature_expi, flow_expi, vol_expi, pressure_offset_expi = 0, 25, 0, 0, 0
+pressure_O2, temperature_O2, flow_O2, vol_O2, pressure_offset_O2 = 0, 25, 0, 0, 0
+if enable_inspi_rsc: 
     flow_inspi_rsc = rsc.HRSC(spi_bus=3)
-    flow_expi_rsc = rsc.HRSC(spi_bus=0)
-    time.sleep(delay)
     flow_inspi_rsc.sensor_info()
+    flow_inspi_rsc.reset()
+if enable_expi_rsc: 
+    flow_expi_rsc = rsc.HRSC(spi_bus=0)
     flow_expi_rsc.sensor_info()
-    time.sleep(delay)
+    flow_expi_rsc.reset()
+if enable_O2_rsc: 
+    flow_O2_rsc = rsc.HRSC(spi_bus=4)
+    flow_O2_rsc.sensor_info()
+    flow_O2_rsc.reset()
+time.sleep(delay)
+if enable_inspi_rsc: 
     flow_inspi_rsc.adc_configure()
-    flow_expi_rsc.adc_configure()
-    time.sleep(delay)
     flow_inspi_rsc.set_speed(2000) #in SPS
+if enable_expi_rsc: 
+    flow_expi_rsc.adc_configure()
     flow_expi_rsc.set_speed(2000) #in SPS
-    time.sleep(delay)
-    raw_pres_inspi = flow_inspi_rsc.read_pressure(delay)
-    raw_pres_expi = flow_expi_rsc.read_pressure(delay)
-    time.sleep(delay)
-    raw_temp_inspi = flow_inspi_rsc.read_temp(delay)
-    raw_temp_expi = flow_expi_rsc.read_temp(delay)
-    time.sleep(delay)
-    pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pres_inspi, raw_temp_inspi)
-    pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pres_expi, raw_temp_expi)
+if enable_O2_rsc: 
+    flow_O2_rsc.adc_configure()
+    flow_O2_rsc.set_speed(2000) #in SPS
+time.sleep(delay)
+if enable_inspi_rsc: 
+    flow_inspi_rsc.pressure_request()
+if enable_expi_rsc: 
+    flow_expi_rsc.pressure_request()
+if enable_O2_rsc: 
+    flow_O2_rsc.pressure_request()
+time.sleep(delay)
+if enable_inspi_rsc: 
+    raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
+    flow_inspi_rsc.temp_request()
+if enable_expi_rsc: 
+    raw_pressure_expi = flow_expi_rsc.pressure_reply()
+    flow_expi_rsc.temp_request()
+if enable_O2_rsc: 
+    raw_pressure_O2 = flow_O2_rsc.pressure_reply()
+    flow_O2_rsc.temp_request()
+time.sleep(delay)
+if enable_inspi_rsc: 
+    raw_temp_inspi = flow_inspi_rsc.temp_reply()
+    pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
     pressure_offset_inspi = pressure_inspi
+if enable_expi_rsc: 
+    raw_temp_expi = flow_expi_rsc.temp_reply()
+    pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
     pressure_offset_expi = pressure_expi
+if enable_O2_rsc: 
+    raw_temp_O2 = flow_O2_rsc.temp_reply()
+    pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
+    pressure_offset_O2 = pressure_O2
+i = 0
+# Filter to estimate the offset in the beginning (with valves closed)...
+while (i < 50):
+    if enable_inspi_rsc: 
+        flow_inspi_rsc.pressure_request()
+    if enable_expi_rsc: 
+        flow_expi_rsc.pressure_request()
+    if enable_O2_rsc: 
+        flow_O2_rsc.pressure_request()
+    time.sleep(delay)
+    if enable_inspi_rsc: 
+        raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
+        flow_inspi_rsc.temp_request()
+    if enable_expi_rsc: 
+        raw_pressure_expi = flow_expi_rsc.pressure_reply()
+        flow_expi_rsc.temp_request()
+    if enable_O2_rsc: 
+        raw_pressure_O2 = flow_O2_rsc.pressure_reply()
+        flow_O2_rsc.temp_request()
+    time.sleep(delay)
+    if enable_inspi_rsc: 
+        raw_temp_inspi = flow_inspi_rsc.temp_reply()
+        pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
+        pressure_offset_inspi = (1-filter_coef)*pressure_inspi+filter_coef*pressure_offset_inspi
+    if enable_expi_rsc: 
+        raw_temp_expi = flow_expi_rsc.temp_reply()
+        pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
+        pressure_offset_expi = (1-filter_coef)*pressure_expi+filter_coef*pressure_offset_expi
+    if enable_O2_rsc: 
+        raw_temp_O2 = flow_O2_rsc.temp_reply()
+        pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
+        pressure_offset_O2 = (1-filter_coef)*pressure_O2+filter_coef*pressure_offset_O2
+    i = i+1
 
 respi_rate_converted = respi_rate*(1.0/60.0) # In breaths/s
 cycle_duration = 1.0/respi_rate_converted
 inspi_duration = inspi_ratio*cycle_duration
 expi_duration = cycle_duration-inspi_duration
 
-t_prev = timer()
 t = timer()
+t_prev = t
 dt = t-t_prev
 t0 = t
 t_cycle_start = t
@@ -222,7 +286,7 @@ pwm1_ns = pwm1_ns_min
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;pressure_inspi (in inchH2O);pressure_expi (in inchH2O);temperature_inspi (in C);temperature_expi (in C);flow_inspi (in L/min);flow_expi (in L/min);vol_inspi (in m3);vol_expi (in m3);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;pressure_inspi (in inchH2O);pressure_expi (in inchH2O);pressure_O2 (in inchH2O);temperature_inspi (in C);temperature_expi (in C);temperature_O2 (in C);flow_inspi (in L/min);flow_expi (in L/min);flow_O2 (in L/min);vol_inspi (in L);vol_expi (in L);vol_O2 (in L);\n')
 except:
     pass
 
@@ -319,19 +383,27 @@ while True:
                     if (inspi_ratio < inspi_ratio_min): inspi_ratio = inspi_ratio_min
  
     # Sensors
-    if enable_rsc:
+    if enable_inspi_rsc: 
         try:
             flow_inspi_rsc.pressure_request()
         except:
             print('RSC I sensor read failed!')
             time.sleep(0.1)
             flow_inspi_rsc.pressure_request()
+    if enable_expi_rsc: 
         try:
             flow_expi_rsc.pressure_request()
         except:
             print('RSC E sensor read failed!')
             time.sleep(0.1)
             flow_expi_rsc.pressure_request()
+    if enable_O2_rsc: 
+        try:
+            flow_O2_rsc.pressure_request()
+        except:
+            print('RSC O sensor read failed!')
+            time.sleep(0.1)
+            flow_O2_rsc.pressure_request()
     time.sleep(delay-0.005)
     if enable_p_ms5837:
         try:
@@ -351,45 +423,63 @@ while True:
                 exit(1)
     else:
         time.sleep(0.005)
-    if enable_rsc:
+    if enable_inspi_rsc: 
         try:
-            raw_pres_inspi = flow_inspi_rsc.pressure_reply()
+            raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
         except:
             print('RSC I sensor read failed!')
             time.sleep(0.1)
-            raw_pres_inspi = flow_inspi_rsc.pressure_reply()
+            raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
+    if enable_expi_rsc: 
         try:
-            raw_pres_expi = flow_expi_rsc.pressure_reply()
+            raw_pressure_expi = flow_expi_rsc.pressure_reply()
         except:
             print('RSC E sensor read failed!')
             time.sleep(0.1)
-            raw_pres_expi = flow_expi_rsc.pressure_reply()
-        pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pres_inspi, raw_temp_inspi)
-        pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pres_expi, raw_temp_expi)
-        if (count < nb_count): # Filter to estimate the offset in the beginning...
-            pressure_offset_inspi = (1-filter_coef)*pressure_inspi+filter_coef*pressure_offset_inspi
-            pressure_offset_expi = (1-filter_coef)*pressure_expi+filter_coef*pressure_offset_expi
+            raw_pressure_expi = flow_expi_rsc.pressure_reply()
+    if enable_O2_rsc: 
+        try:
+            raw_pressure_O2 = flow_O2_rsc.pressure_reply()
+        except:
+            print('RSC O sensor read failed!')
+            time.sleep(0.1)
+            raw_pressure_O2 = flow_O2_rsc.pressure_reply()
+    if enable_inspi_rsc: 
+        pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
         pressure_inspi = pressure_inspi-pressure_offset_inspi
-        pressure_expi = pressure_expi-pressure_offset_expi
         rho_air_inspi = 1.292*(273.15/(273.15+temperature_inspi)) # In kg/m3
-        rho_air_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
         vel_inspi = np.sign(pressure_inspi)*math.sqrt(2*(np.abs(pressure_inspi)*248.84)/(rho_air_inspi*((A1/A2)**2-1)))
-        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(np.abs(pressure_expi)*248.84)/(rho_air_expi*((A1/A2)**2-1)))
         flow_inspi = A1*vel_inspi
-        flow_expi = A1*vel_expi
         if (np.abs(flow_inspi) > flow_thresh/60000.0): vol_inspi = vol_inspi + dt*flow_inspi
+    if enable_expi_rsc: 
+        pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
+        pressure_expi = pressure_expi-pressure_offset_expi
+        rho_air_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
+        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(np.abs(pressure_expi)*248.84)/(rho_air_expi*((A1/A2)**2-1)))
+        flow_expi = A1*vel_expi
         if (np.abs(flow_expi) > flow_thresh/60000.0): vol_expi = vol_expi + dt*flow_expi
+    if enable_O2_rsc: 
+        pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
+        pressure_O2 = pressure_O2-pressure_offset_O2
+        rho_air_O2 = 1.292*(273.15/(273.15+temperature_O2)) # In kg/m3
+        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(np.abs(pressure_O2)*248.84)/(rho_air_O2*((A1/A2)**2-1)))
+        flow_O2 = A1*vel_O2
+        if (np.abs(flow_O2) > flow_thresh/60000.0): vol_O2 = vol_O2 + dt*flow_O2
 
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, pressure_inspi, pressure_expi, temperature_inspi, temperature_expi, flow_inspi*60000.0, flow_expi*60000.0, vol_inspi, vol_expi))
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, 
+                               pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, 
+                               pressure_inspi, pressure_expi, pressure_O2, temperature_inspi, temperature_expi, temperature_O2, 
+                               flow_inspi*60000.0, flow_expi*60000.0, flow_O2*60000.0, vol_inspi*1000.0, vol_expi*1000.0, vol_O2*1000.0))
         file.flush()
     except:
         buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C') % (t-t0, dt, p0, temperature0, p, temperature) 
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP I: %0.4f inchH2O \tP off. I: %0.4f inchH2O \tP E: %0.4f inchH2O \tP off. E: %0.4f inchH2O \tP O: %0.4f inchH2O \tP off. O: %0.4f inchH2O') % (
+        t-t0, dt, p0, temperature0, p, temperature, pressure_inspi, pressure_offset_inspi, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2) 
     
     # Prepare next loop...
     t_prev = t
@@ -420,33 +510,51 @@ while True:
                     exit(1)
             p0 = p0_ms5837.pressure()
             temperature0 = p0_ms5837.temperature()
-        if enable_rsc:
+        if enable_inspi_rsc: 
             try:
                 flow_inspi_rsc.temp_request()
             except:
                 print('RSC I sensor read failed!')
                 time.sleep(0.1)
                 flow_inspi_rsc.temp_request()
+        if enable_expi_rsc: 
             try:
                 flow_expi_rsc.temp_request()
             except:
                 print('RSC E sensor read failed!')
                 time.sleep(0.1)
                 flow_expi_rsc.temp_request()
-            time.sleep(delay)
+        if enable_O2_rsc: 
+            try:
+                flow_O2_rsc.temp_request()
+            except:
+                print('RSC O sensor read failed!')
+                time.sleep(0.1)
+                flow_O2_rsc.temp_request()
+        time.sleep(delay)
+        if enable_inspi_rsc: 
             try:
                 raw_temp_inspi = flow_inspi_rsc.temp_reply()
             except:
                 print('RSC I sensor read failed!')
                 time.sleep(0.1)
                 raw_temp_inspi = flow_inspi_rsc.temp_reply()
+        if enable_expi_rsc: 
             try:
                 raw_temp_expi = flow_expi_rsc.temp_reply()
             except:
                 print('RSC E sensor read failed!')
                 time.sleep(0.1)
                 raw_temp_expi = flow_expi_rsc.temp_reply()
+        if enable_O2_rsc: 
+            try:
+                raw_temp_O2 = flow_O2_rsc.temp_reply()
+            except:
+                print('RSC O sensor read failed!')
+                time.sleep(0.1)
+                raw_temp_O2 = flow_O2_rsc.temp_reply()
         vol_inspi = 0
         vol_expi = 0
+        vol_O2 = 0
         inspi_end = False
     count = count+1
