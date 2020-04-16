@@ -69,7 +69,8 @@ R2 = 0.011651/2.0
 #R2 = 0.006500/2.0
 A1 = math.pi*R1**2
 A2 = math.pi*R2**2
-delay = 0.030
+speed_rsc = 90 # In SPS
+delay_rsc = 0.010
 filter_coef = 0.9
 flow_thresh = 10 # In L/min
 debug = True
@@ -179,24 +180,24 @@ if enable_O2_rsc:
     flow_O2_rsc = rsc.HRSC(spi_bus=4)
     flow_O2_rsc.sensor_info()
     flow_O2_rsc.reset()
-time.sleep(delay)
+time.sleep(delay_rsc)
 if enable_inspi_rsc: 
     flow_inspi_rsc.adc_configure()
-    flow_inspi_rsc.set_speed(2000) #in SPS
+    flow_inspi_rsc.set_speed(speed_rsc)
 if enable_expi_rsc: 
     flow_expi_rsc.adc_configure()
-    flow_expi_rsc.set_speed(2000) #in SPS
+    flow_expi_rsc.set_speed(speed_rsc)
 if enable_O2_rsc: 
     flow_O2_rsc.adc_configure()
-    flow_O2_rsc.set_speed(2000) #in SPS
-time.sleep(delay)
+    flow_O2_rsc.set_speed(speed_rsc)
+time.sleep(delay_rsc)
 if enable_inspi_rsc: 
     flow_inspi_rsc.pressure_request()
 if enable_expi_rsc: 
     flow_expi_rsc.pressure_request()
 if enable_O2_rsc: 
     flow_O2_rsc.pressure_request()
-time.sleep(delay)
+time.sleep(delay_rsc)
 if enable_inspi_rsc: 
     raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
     flow_inspi_rsc.temp_request()
@@ -206,7 +207,7 @@ if enable_expi_rsc:
 if enable_O2_rsc: 
     raw_pressure_O2 = flow_O2_rsc.pressure_reply()
     flow_O2_rsc.temp_request()
-time.sleep(delay)
+time.sleep(delay_rsc)
 if enable_inspi_rsc: 
     raw_temp_inspi = flow_inspi_rsc.temp_reply()
     pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
@@ -228,7 +229,7 @@ while (i < 50):
         flow_expi_rsc.pressure_request()
     if enable_O2_rsc: 
         flow_O2_rsc.pressure_request()
-    time.sleep(delay)
+    time.sleep(delay_rsc)
     if enable_inspi_rsc: 
         raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
         flow_inspi_rsc.temp_request()
@@ -238,7 +239,7 @@ while (i < 50):
     if enable_O2_rsc: 
         raw_pressure_O2 = flow_O2_rsc.pressure_reply()
         flow_O2_rsc.temp_request()
-    time.sleep(delay)
+    time.sleep(delay_rsc)
     if enable_inspi_rsc: 
         raw_temp_inspi = flow_inspi_rsc.temp_reply()
         pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
@@ -404,7 +405,7 @@ while True:
             print('RSC O sensor read failed!')
             time.sleep(0.1)
             flow_O2_rsc.pressure_request()
-    time.sleep(delay-0.005)
+    time.sleep(max(0, delay_rsc-0.005))
     if enable_p_ms5837:
         try:
             if not p_ms5837.read(ms5837.OSR_256):
@@ -444,6 +445,49 @@ while True:
             print('RSC O sensor read failed!')
             time.sleep(0.1)
             raw_pressure_O2 = flow_O2_rsc.pressure_reply()
+    if enable_inspi_rsc: 
+        try:
+            flow_inspi_rsc.temp_request()
+        except:
+            print('RSC I sensor read failed!')
+            time.sleep(0.1)
+            flow_inspi_rsc.temp_request()
+    if enable_expi_rsc: 
+        try:
+            flow_expi_rsc.temp_request()
+        except:
+            print('RSC E sensor read failed!')
+            time.sleep(0.1)
+            flow_expi_rsc.temp_request()
+    if enable_O2_rsc: 
+        try:
+            flow_O2_rsc.temp_request()
+        except:
+            print('RSC O sensor read failed!')
+            time.sleep(0.1)
+            flow_O2_rsc.temp_request()
+    time.sleep(delay_rsc)
+    if enable_inspi_rsc: 
+        try:
+            raw_temp_inspi = flow_inspi_rsc.temp_reply()
+        except:
+            print('RSC I sensor read failed!')
+            time.sleep(0.1)
+            raw_temp_inspi = flow_inspi_rsc.temp_reply()
+    if enable_expi_rsc: 
+        try:
+            raw_temp_expi = flow_expi_rsc.temp_reply()
+        except:
+            print('RSC E sensor read failed!')
+            time.sleep(0.1)
+            raw_temp_expi = flow_expi_rsc.temp_reply()
+    if enable_O2_rsc: 
+        try:
+            raw_temp_O2 = flow_O2_rsc.temp_reply()
+        except:
+            print('RSC O sensor read failed!')
+            time.sleep(0.1)
+            raw_temp_O2 = flow_O2_rsc.temp_reply()
     if enable_inspi_rsc: 
         pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
         pressure_inspi = pressure_inspi-pressure_offset_inspi
@@ -510,49 +554,6 @@ while True:
                     exit(1)
             p0 = p0_ms5837.pressure()
             temperature0 = p0_ms5837.temperature()
-        if enable_inspi_rsc: 
-            try:
-                flow_inspi_rsc.temp_request()
-            except:
-                print('RSC I sensor read failed!')
-                time.sleep(0.1)
-                flow_inspi_rsc.temp_request()
-        if enable_expi_rsc: 
-            try:
-                flow_expi_rsc.temp_request()
-            except:
-                print('RSC E sensor read failed!')
-                time.sleep(0.1)
-                flow_expi_rsc.temp_request()
-        if enable_O2_rsc: 
-            try:
-                flow_O2_rsc.temp_request()
-            except:
-                print('RSC O sensor read failed!')
-                time.sleep(0.1)
-                flow_O2_rsc.temp_request()
-        time.sleep(delay)
-        if enable_inspi_rsc: 
-            try:
-                raw_temp_inspi = flow_inspi_rsc.temp_reply()
-            except:
-                print('RSC I sensor read failed!')
-                time.sleep(0.1)
-                raw_temp_inspi = flow_inspi_rsc.temp_reply()
-        if enable_expi_rsc: 
-            try:
-                raw_temp_expi = flow_expi_rsc.temp_reply()
-            except:
-                print('RSC E sensor read failed!')
-                time.sleep(0.1)
-                raw_temp_expi = flow_expi_rsc.temp_reply()
-        if enable_O2_rsc: 
-            try:
-                raw_temp_O2 = flow_O2_rsc.temp_reply()
-            except:
-                print('RSC O sensor read failed!')
-                time.sleep(0.1)
-                raw_temp_O2 = flow_O2_rsc.temp_reply()
         vol_inspi = 0
         vol_expi = 0
         vol_O2 = 0
