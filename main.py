@@ -19,8 +19,8 @@ from timeit import default_timer as timer
 # 10, 11 SPI0 for Honeywell RSC for flow (inspiration), valves, 12, 13 for PWM 
 # servomotors, 16 for digital input UP button, 17 for digital input DOWN 
 # button, 18, 19, 20, 21, 27 SPI6 (3?) for Honeywell RSC for flow (expiration),
-# 22, 23 for I2C6 Bar02 (room), 24 for software PWM buzzer, 25 for POWER 
-# button, 26 for software PWM LED) :
+# 22, 23 for I2C6 Bar02 (room), 24 for software PWM proportional valve, 25 for 
+# POWER button), 26 for software PWM buzzer :
 #sudo nano /boot/config.txt
 # Add in /boot/config.txt (SPI6 will appear as 3...?)
 #dtparam=i2c_arm=on
@@ -28,8 +28,10 @@ from timeit import default_timer as timer
 ##dtoverlay=i2c-gpio,bus=3,i2c_gpio_delay_us=1,i2c_gpio_sda=4,i2c_gpio_scl=5
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
 #dtparam=spi=on
-#dtoverlay=spi0-2cs
+##dtoverlay=spi0-cs,cs1_pin=40
 ##dtoverlay=spi3-2cs
+##dtoverlay=spi4-2cs
+##dtoverlay=spi5-2cs
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
 # Then reboot and
@@ -76,17 +78,18 @@ flow_thresh = 10 # In L/min
 debug = True
 ###############################################################################
 
-# Software PWM init (for buzzer and status LED)
+# Software PWM init (for buzzer and proportional valve)
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
 buz_pin = 26
 GPIO.setup(buz_pin, GPIO.OUT)
 buz_pwm = GPIO.PWM(buz_pin, 4000)
 buz_pwm.start(50) # Startup beep...
-led_pin = 24
-GPIO.setup(led_pin, GPIO.OUT)
-led_pwm = GPIO.PWM(led_pin, 1000)
-led_pwm.start(100)
+valve_prop_pin = 24
+GPIO.setup(valve_prop_pin, GPIO.OUT)
+valve_prop_pwm = GPIO.PWM(valve_prop_pin, 800)
+valve_prop_val = 0
+valve_prop_pwm.start(valve_prop_val)
 
 # Hardware PWM init (for servos)
 os.system('echo 0 > /sys/class/pwm/pwmchip0/export')
@@ -287,7 +290,7 @@ pwm1_ns = pwm1_ns_min
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_inspi_val;valve_expi_val;pressure_inspi (in inchH2O);pressure_expi (in inchH2O);pressure_O2 (in inchH2O);temperature_inspi (in C);temperature_expi (in C);temperature_O2 (in C);flow_inspi (in L/min);flow_expi (in L/min);flow_O2 (in L/min);vol_inspi (in L);vol_expi (in L);vol_O2 (in L);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_prop_val;valve_inspi_val;valve_expi_val;pressure_inspi (in inchH2O);pressure_expi (in inchH2O);pressure_O2 (in inchH2O);temperature_inspi (in C);temperature_expi (in C);temperature_O2 (in C);flow_inspi (in L/min);flow_expi (in L/min);flow_O2 (in L/min);vol_inspi (in L);vol_expi (in L);vol_O2 (in L);\n')
 except:
     pass
 
@@ -308,9 +311,13 @@ while True:
             Ppeak_reached = True
             pwm0_ns = pwm0_ns_max
             pwm1_ns = pwm1_ns_min
+            valve_prop_val = 0
+            valve_prop_pwm.ChangeDutyCycle(valve_prop_val) 
             valve_inspi_val = GPIO.LOW
             GPIO.output(valve_inspi_pin, valve_inspi_val)
         else:
+            valve_prop_val = 100
+            valve_prop_pwm.ChangeDutyCycle(valve_prop_val) 
             valve_inspi_val = GPIO.HIGH
             GPIO.output(valve_inspi_pin, valve_inspi_val)
         valve_expi_val = GPIO.LOW
@@ -321,14 +328,20 @@ while True:
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
         Ppeak_reached = False
-        valve_inspi_val = GPIO.LOW
-        GPIO.output(valve_inspi_pin, valve_inspi_val)
-        if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close both valves to maintain PEEP...
-        #if (p-p0 < PEEP): # Should close both valves to maintain PEEP...
+        if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close valves to maintain PEEP...
+        #if (p-p0 < PEEP): # Should close valves to maintain PEEP...
             PEEP_reached = True
+            valve_prop_val = 0
+            valve_prop_pwm.ChangeDutyCycle(valve_prop_val) 
+            valve_inspi_val = GPIO.LOW
+            GPIO.output(valve_inspi_pin, valve_inspi_val)
             valve_expi_val = GPIO.LOW
             GPIO.output(valve_expi_pin, valve_expi_val)
         else:
+            valve_prop_val = 100
+            valve_prop_pwm.ChangeDutyCycle(valve_prop_val) 
+            valve_inspi_val = GPIO.LOW
+            GPIO.output(valve_inspi_pin, valve_inspi_val)
             valve_expi_val = GPIO.HIGH
             GPIO.output(valve_expi_pin, valve_expi_val)
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
@@ -338,9 +351,6 @@ while True:
     pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
     os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
     os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
-
-    # Test...
-    led_pwm.ChangeDutyCycle(min(100, max(0, math.trunc(100*min(1.0, (pwm1_ns-pwm1_ns_min)/(pwm1_ns_max-pwm1_ns_min))))))
 
     # Buttons to set parameters
     select_button_val = GPIO.input(select_button_pin)
@@ -513,9 +523,9 @@ while True:
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
         file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, assist, 
-                               pwm0_ns, pwm1_ns, valve_inspi_val, valve_expi_val, 
+                               pwm0_ns, pwm1_ns, valve_prop_val, valve_inspi_val, valve_expi_val, 
                                pressure_inspi, pressure_expi, pressure_O2, temperature_inspi, temperature_expi, temperature_O2, 
                                flow_inspi*60000.0, flow_expi*60000.0, flow_O2*60000.0, vol_inspi*1000.0, vol_expi*1000.0, vol_O2*1000.0))
         file.flush()

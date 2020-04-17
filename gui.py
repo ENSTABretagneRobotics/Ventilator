@@ -18,11 +18,12 @@ scale2y = 100
 offset2y = 20
 ###############################################################################
 
-nb_cols = 28 # Not counting the final '\n'
+nb_cols = 29 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
 p_cmh2o_plot = [0]
+valve_prop_plot = [0]
 valve_inspi_plot = [0]
 valve_expi_plot = [0]
 flow_inspi_l_min_plot = [0]
@@ -55,12 +56,13 @@ plt2.getAxis("right").tickFont = font
 plt.getAxis("bottom").tickFont = font
 plt2.getAxis("bottom").tickFont = font
 c1 = plt.plot(t_plot, p_cmh2o_plot, pen = "y", name = 'Pressure')
-c2 = plt.plot(t_plot, valve_inspi_plot, pen = "c", name = 'Inspiration valve')
-c3 = plt.plot(t_plot, valve_expi_plot, pen = "m", name = 'Expiration valve')
-c4 = plt2.plot(t_plot, flow_inspi_l_min_plot, pen = "g", name = 'Inspiration flow')
-c5 = plt2.plot(t_plot, flow_expi_l_min_plot, pen = "r", name = 'Expiration flow')
-c6 = plt2.plot(t_plot, flow_O2_l_min_plot, pen = "c", name = 'Oxygen flow')
-c7 = plt2.plot(t_plot, vol_l_plot, pen = "m", name = 'Volume')
+c2 = plt.plot(t_plot, valve_prop_plot, pen = "w", name = 'Proportional valve')
+c3 = plt.plot(t_plot, valve_inspi_plot, pen = "c", name = 'Inspiration valve')
+c4 = plt.plot(t_plot, valve_expi_plot, pen = "m", name = 'Expiration valve')
+c5 = plt2.plot(t_plot, flow_inspi_l_min_plot, pen = "g", name = 'Inspiration flow')
+c6 = plt2.plot(t_plot, flow_expi_l_min_plot, pen = "r", name = 'Expiration flow')
+c7 = plt2.plot(t_plot, flow_O2_l_min_plot, pen = "c", name = 'Oxygen flow')
+c8 = plt2.plot(t_plot, vol_l_plot, pen = "m", name = 'Volume')
 for item in plt.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
@@ -110,20 +112,21 @@ while True:
                         PEEP = float(cols[8])
                         respi_rate = float(cols[9])
                         inspi_ratio = float(cols[10])
-                        valve_inspi = float(cols[14])
-                        valve_expi = float(cols[15])
-                        pressure_inspi = float(cols[16])
-                        pressure_expi = float(cols[17])
-                        pressure_O2 = float(cols[18])
-                        temperature_inspi = float(cols[19])
-                        temperature_expi = float(cols[20])
-                        temperature_O2 = float(cols[21])
-                        flow_inspi = float(cols[22])
-                        flow_expi = float(cols[23])
-                        flow_O2 = float(cols[24])
-                        vol_inspi = float(cols[25])
-                        vol_expi = float(cols[26])
-                        vol_O2 = float(cols[27])
+                        valve_prop = float(cols[14])
+                        valve_inspi = float(cols[15])
+                        valve_expi = float(cols[16])
+                        pressure_inspi = float(cols[17])
+                        pressure_expi = float(cols[18])
+                        pressure_O2 = float(cols[19])
+                        temperature_inspi = float(cols[20])
+                        temperature_expi = float(cols[21])
+                        temperature_O2 = float(cols[22])
+                        flow_inspi = float(cols[23])
+                        flow_expi = float(cols[24])
+                        flow_O2 = float(cols[25])
+                        vol_inspi = float(cols[26])
+                        vol_expi = float(cols[27])
+                        vol_O2 = float(cols[28])
                         dt = t-t0
                         p_cmh2o = (float(cols[4])-float(cols[2]))*1.01972
                         flow_inspi_l_min = flow_inspi
@@ -134,6 +137,7 @@ while True:
                             # Reset if time seems to decrease...
                             t_plot = [0]
                             p_cmh2o_plot = [0]
+                            valve_prop_plot = [0]
                             valve_inspi_plot = [0]
                             valve_expi_plot = [0]
                             flow_inspi_l_min_plot = [0]
@@ -161,6 +165,7 @@ while True:
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
                         p_cmh2o_plot.append(p_cmh2o)
+                        valve_prop_plot.append(valve_prop/10.0)
                         valve_inspi_plot.append(10.0*valve_inspi)
                         valve_expi_plot.append(10.0*valve_expi)
                         flow_inspi_l_min_plot.append(flow_inspi_l_min)
@@ -170,6 +175,7 @@ while True:
                         if (t_plot[-1]-t_plot[0] > 2*scalex):
                             t_plot.pop(0)
                             p_cmh2o_plot.pop(0)
+                            valve_prop_plot.pop(0)
                             valve_inspi_plot.pop(0)
                             valve_expi_plot.pop(0)
                             flow_inspi_l_min_plot.pop(0)
@@ -186,12 +192,13 @@ while True:
         file.seek(0, os.SEEK_END) # Might be necessary on recent versions of Linux, see https://lists.gnu.org/archive/html/info-gnu/2018-08/msg00000.html...
    
     c1.setData(t_plot, p_cmh2o_plot)
-    c2.setData(t_plot, valve_inspi_plot)
-    c3.setData(t_plot, valve_expi_plot)
-    c4.setData(t_plot, flow_inspi_l_min_plot)
-    c5.setData(t_plot, flow_expi_l_min_plot)
-    c6.setData(t_plot, flow_O2_l_min_plot)
-    c7.setData(t_plot, vol_l_plot)
+    c2.setData(t_plot, valve_prop_plot)
+    c3.setData(t_plot, valve_inspi_plot)
+    c4.setData(t_plot, valve_expi_plot)
+    c5.setData(t_plot, flow_inspi_l_min_plot)
+    c6.setData(t_plot, flow_expi_l_min_plot)
+    c7.setData(t_plot, flow_O2_l_min_plot)
+    c8.setData(t_plot, vol_l_plot)
 
     pg.QtGui.QApplication.processEvents()
 
