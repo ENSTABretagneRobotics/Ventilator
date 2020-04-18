@@ -58,53 +58,74 @@ HRSC_ADC_RESET         = 0x06
 
 class HRSC(object):
 
-    def __init__(self, spi_bus=0, **kwargs):
+    def __init__(self, spi_bus = 0, spi_speed_hz = 1250000, spi_max_speed_hz = 1250000, force_spi_mode = True, EE_spi_mode = 0b00, alt_spi_cs0 = -1, alt_spi_cs1 = -1, **kwargs):
         # Create device.
         self.spi_bus = spi_bus
+        self.spi_speed_hz = spi_speed_hz
+        self.spi_max_speed_hz = spi_max_speed_hz
+        self.force_spi_mode = force_spi_mode
+        self.EE_spi_mode = EE_spi_mode
+        self.alt_spi_cs0 = alt_spi_cs0
+        self.alt_spi_cs1 = alt_spi_cs1
         self.spi = spidev.SpiDev()
         self.spi.open(self.spi_bus, 1)
-        self.spi.mode = 0b00
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = self.EE_spi_mode
+        if ((self.alt_spi_cs0 >= 0) or (self.alt_spi_cs1 >= 0)): import RPi.GPIO as GPIO
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.HIGH)
         self.spi.close()
         self.spi.open(self.spi_bus, 0)
-        self.spi.mode = 0b01
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = 0b01
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.HIGH)
         self.spi.close()
         self.reg_dr = 0
-        self.reg_mode = 2
+        self.reg_mode = 0
         # HRSC ROM values
         self.sensor_rom = [0] * 512 # 512 bytes of EEPROM
         self.read_eeprom()
-        # Load calibration values.
-        #self._load_calibration()
-        #self.t_fine = 0.0
+        self.PCompr = 0.0
+        self.raw_auto_zero_pressure = 0.0
     
     def read_eeprom(self):
         #print "Loading EEPROM data from sensor",
         #print ".",
         # Assert EEPROM SS to L, Deassert ADC SS to H, Set mode 0 or mode 4
         self.spi.open(self.spi_bus, 1)
-        self.spi.mode = 0b00
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = self.EE_spi_mode
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.HIGH)
         for i in range (0,256):
-            self.sensor_rom[i] = self.spi.xfer([HRSC_EAD_EEPROM_LSB, i, 0x00], 10000)[2] # Read low page
+            self.sensor_rom[i] = self.spi.xfer([HRSC_EAD_EEPROM_LSB, i, 0x00], self.spi_speed_hz)[2] # Read low page
 #            print "%c" % (self.sensor_rom[i]),
         for i in range (0,256):
-            self.sensor_rom[i+256] = self.spi.xfer([HRSC_EAD_EEPROM_MSB, i, 0x00], 10000)[2] # Read high page
+            self.sensor_rom[i+256] = self.spi.xfer([HRSC_EAD_EEPROM_MSB, i, 0x00], self.spi_speed_hz)[2] # Read high page
         # Clear EEPROM SS , set mode 1 for ADC
         self.spi.close()
-        
+       
     def reset(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
-        self.spi.mode = 1
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = 0b01
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.HIGH)
         self.bytewr = 3
         self.regaddr = 0
         # Reset command
-        test = self.spi.xfer([HRSC_ADC_RESET], 10000)
+        test = self.spi.xfer([HRSC_ADC_RESET], self.spi_speed_hz)
         self.spi.close()
         
     def adc_configure(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
-        self.spi.mode = 1
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = 0b01
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.HIGH)
         self.bytewr = 3
         self.regaddr = 0
         # Write configuration registers from ROM
@@ -112,7 +133,7 @@ class HRSC(object):
         #print ("%02X" % self.sensor_rom[63]),
         #print ("%02X" % self.sensor_rom[65]),
         #print ("%02X" % self.sensor_rom[67]),
-        test = self.spi.xfer2([HRSC_ADC_WREG|self.regaddr << 3|self.bytewr & 0x03, self.sensor_rom[61], self.sensor_rom[63], self.sensor_rom[65], self.sensor_rom[67] ], 10000)        
+        test = self.spi.xfer2([HRSC_ADC_WREG|self.regaddr << 3|self.bytewr & 0x03, self.sensor_rom[61], self.sensor_rom[63], self.sensor_rom[65], self.sensor_rom[67] ], self.spi_speed_hz)        
         self.spi.close()
 
     def conv_to_float(self, byte1, byte2, byte3, byte4):
@@ -145,36 +166,68 @@ class HRSC(object):
         print(b, self.sensor_rom[450:452])
         print('\033[0;39m')
     
-    def set_speed(self, speed):
+    def set_speed(self, data_rate): # In SPS
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
-        self.spi.mode = 1
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = 0b01
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.HIGH)
         self.bytewr = 0
         self.regaddr = 1
-        if (speed == 20):
+        if (data_rate == 20):
             self.reg_dr = 0
-        elif (speed == 45):
+            self.reg_mode = 0
+        elif (data_rate == 45):
             self.reg_dr = 1
-        elif (speed == 90):
+            self.reg_mode = 0
+        elif (data_rate == 90):
             self.reg_dr = 2
-        elif (speed == 175):
+            self.reg_mode = 0
+        elif (data_rate == 175):
             self.reg_dr = 3
-        elif (speed == 330):
+            self.reg_mode = 0
+        elif (data_rate == 330):
             self.reg_dr = 4
-        elif (speed == 600):
+            self.reg_mode = 0
+        elif (data_rate == 600):
             self.reg_dr = 5
-        elif (speed == 1000):
+            self.reg_mode = 0
+        elif (data_rate == 1000):
             self.reg_dr = 6
-        reg_sensor = 0 # pressure
-        self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
-        # Write configuration register
-        self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
-        test = self.spi.xfer([self.command, self.reg_wr], 10000)
-        self.spi.close()
+            self.reg_mode = 0
+        elif (data_rate == 40):
+            self.reg_dr = 8
+            self.reg_mode = 2
+        elif (data_rate == 90):
+            self.reg_dr = 9
+            self.reg_mode = 2
+        elif (data_rate == 180):
+            self.reg_dr = 10
+            self.reg_mode = 2
+        elif (data_rate == 350):
+            self.reg_dr = 11
+            self.reg_mode = 2
+        elif (data_rate == 660):
+            self.reg_dr = 12
+            self.reg_mode = 2
+        elif (data_rate == 1200):
+            self.reg_dr = 13
+            self.reg_mode = 2
+        elif (data_rate == 2000):
+            self.reg_dr = 14
+            self.reg_mode = 2
+        #reg_sensor = 0 # pressure
+        #self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
+        ## Write configuration register
+        #self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
+        ##print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
+        #test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
+        #self.spi.close()
 
     def convert_temp(self, raw_temp):
         raw = (raw_temp & 0xFFFF00) >> 10
+        #raw = raw_temp
         if (raw & 0x2000):
             #print "MSB is 1, negative temp"
             raw = (0x3fff - (raw - 1))
@@ -183,32 +236,38 @@ class HRSC(object):
             #print "MSB is 0, positive temp"
             temp = (float(raw) * 0.03125)
         #print "RAW: %s %s , %4.3f" % (hex(raw_temp), hex(raw), temp )
-#        with open('rsc_temp.dsv', 'ab') as o:
-#            o.write (time.strftime("%d/%m/%Y-%H:%M:%S;")+('%4.5f;%3.3f;\r\n' % (0.0, temp)))
         return temp
     
     def temp_request(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
-        self.spi.mode = 1
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = 0b01
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.HIGH)
         self.bytewr = 0
         self.regaddr = 1
-        self.spi.max_speed_hz = 10000
         reg_sensor = 1 # temperature
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
         self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
         #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
-        test = self.spi.xfer([self.command, self.reg_wr], 10000)
+        test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
     
     def temp_reply(self):
-        adc_data = self.spi.xfer([0,0,self.command, self.reg_wr], 10000)
+        adc_data = self.spi.xfer([0,0,self.command, self.reg_wr], self.spi_speed_hz)
         #print "RDATA = ",
         #print adc_data
         temp_data = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
         tempval = self.convert_temp(temp_data)
+
+        # first 14 bits represent temperature
+        # following 10 bits are random thus discarded
+        #_t_raw = ((adc_data[0] << 8) | adc_data[1]) >> 2;
+
         self.spi.close()
         return tempval
+        #return _t_raw
     
     def read_temp(self, delay):
         self.temp_request()
@@ -226,7 +285,10 @@ class HRSC(object):
     def pressure_request(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
-        self.spi.mode = 1
+        self.spi.max_speed_hz = self.spi_max_speed_hz
+        if self.force_spi_mode: self.spi.mode = 0b01
+        if (self.alt_spi_cs0 >= 0): GPIO.setup(self.alt_spi_cs0, GPIO.OUT, initial = GPIO.LOW)
+        if (self.alt_spi_cs1 >= 0): GPIO.setup(self.alt_spi_cs1, GPIO.OUT, initial = GPIO.HIGH)
         self.bytewr = 0
         self.regaddr = 1
         reg_sensor = 0 # Pressure readout
@@ -234,10 +296,10 @@ class HRSC(object):
         # Write configuration register
         self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
         #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
-        test = self.spi.xfer([self.command, self.reg_wr], 10000)
+        test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
 
     def pressure_reply(self):
-        adc_data = self.spi.xfer([0,0, self.command, self.reg_wr], 10000)
+        adc_data = self.spi.xfer([0,0, self.command, self.reg_wr], self.spi_speed_hz)
         #print hex(adc_data[0]),hex(adc_data[1]),hex(adc_data[2]),
         press = (self.twos_complement(adc_data)) # 24-bit 2's complement math
         #print float(press) / pow(2,23)
@@ -256,7 +318,17 @@ class HRSC(object):
         time.sleep(delay)
         return self.pressure_reply()
         
-    def comp_readings(self, raw_pressure, raw_temp):
+    def comp_auto_zero(self, raw_pressure, temperature):
+        OffsetCoefficient0 = self.conv_to_float(self.sensor_rom[130], self.sensor_rom[131], self.sensor_rom[132], self.sensor_rom[133])
+        OffsetCoefficient1 = self.conv_to_float(self.sensor_rom[134], self.sensor_rom[135], self.sensor_rom[136], self.sensor_rom[137])
+        OffsetCoefficient2 = self.conv_to_float(self.sensor_rom[138], self.sensor_rom[139], self.sensor_rom[140], self.sensor_rom[141])
+        OffsetCoefficient3 = self.conv_to_float(self.sensor_rom[142], self.sensor_rom[143], self.sensor_rom[144], self.sensor_rom[145])
+        raw_temp = temperature/0.03125
+        raw_temp2 = raw_temp * raw_temp
+        raw_temp3 = raw_temp2 * raw_temp
+        self.raw_auto_zero_pressure = ( (OffsetCoefficient3 * raw_temp3) + (OffsetCoefficient2 * raw_temp2) + (OffsetCoefficient1 * raw_temp) + OffsetCoefficient0 ) - raw_pressure
+        
+    def comp_readings(self, raw_pressure, temperature):
         OffsetCoefficient0 = self.conv_to_float(self.sensor_rom[130], self.sensor_rom[131], self.sensor_rom[132], self.sensor_rom[133])
         OffsetCoefficient1 = self.conv_to_float(self.sensor_rom[134], self.sensor_rom[135], self.sensor_rom[136], self.sensor_rom[137])
         OffsetCoefficient2 = self.conv_to_float(self.sensor_rom[138], self.sensor_rom[139], self.sensor_rom[140], self.sensor_rom[141])
@@ -277,6 +349,7 @@ class HRSC(object):
         #print "\033[0;33mPrange",PRange
         #print "\033[0;33mPmin",Pmin
 
+        raw_temp = temperature/0.03125
         raw_temp2 = raw_temp * raw_temp
         raw_temp3 = raw_temp2 * raw_temp
 
@@ -284,7 +357,7 @@ class HRSC(object):
 
         #print "Pressure data = %X %d " % (self.read_pressure(), self.read_pressure())
         #Pint1 = (self.read_pressure(delay) ) - ( (OffsetCoefficient3 * raw_temp3) + (OffsetCoefficient2 * raw_temp2) + (OffsetCoefficient1 * raw_temp) + OffsetCoefficient0 )
-        Pint1 = raw_pressure - ( (OffsetCoefficient3 * raw_temp3) + (OffsetCoefficient2 * raw_temp2) + (OffsetCoefficient1 * raw_temp) + OffsetCoefficient0 ) # Intermediate value 1
+        Pint1 = raw_pressure + self.raw_auto_zero_pressure - ( (OffsetCoefficient3 * raw_temp3) + (OffsetCoefficient2 * raw_temp2) + (OffsetCoefficient1 * raw_temp) + OffsetCoefficient0 ) # Intermediate value 1
         #print "Pint1", Pint1
         Pint2 = Pint1 / ((SpanCoefficient3 * raw_temp3) + (SpanCoefficient2 * raw_temp2) + (SpanCoefficient1 * raw_temp) + SpanCoefficient0) # Intermediate value 2
         #print "Pint2", Pint2
@@ -296,6 +369,4 @@ class HRSC(object):
         #print "PComp_FS", PComp_FS
         self.PCompr = (PComp_FS * PRange) + Pmin #[Engineering Units]
         #print "\033[1;33mPComp out = %f" % self.PCompr
-        tdata = float( (PComp_FS * PRange) + Pmin )
-        return tdata, raw_temp
-        
+        return self.PCompr, temperature

@@ -71,9 +71,10 @@ R2 = 0.011651/2.0
 #R2 = 0.006500/2.0
 A1 = math.pi*R1**2
 A2 = math.pi*R2**2
-speed_rsc = 90 # In SPS
+speed_rsc = 175 # In SPS
 delay_rsc = 0.010
-filter_coef = 0.9
+filter_coef = 0.95
+nb_count_filter_rsc = 100
 flow_thresh = 10 # In L/min
 debug = True
 ###############################################################################
@@ -127,7 +128,7 @@ down_button_val_prev = down_button_val
 
 # Bar02
 if enable_p_ms5837:
-    p_ms5837 = ms5837.MS5837_02BA(bus=1)
+    p_ms5837 = ms5837.MS5837_02BA(bus = 1)
     try:
         if not p_ms5837.init():
             print('P sensor could not be initialized')
@@ -142,7 +143,7 @@ if enable_p_ms5837:
             print('P sensor could not be initialized')
             exit(1)
 if enable_p0_ms5837:
-    p0_ms5837 = ms5837.MS5837_02BA(bus=6)
+    p0_ms5837 = ms5837.MS5837_02BA(bus = 6)
     try:
         if not p0_ms5837.init():
             print('P0 sensor could not be initialized')
@@ -172,18 +173,18 @@ pressure_inspi, temperature_inspi, flow_inspi, vol_inspi, pressure_offset_inspi 
 pressure_expi, temperature_expi, flow_expi, vol_expi, pressure_offset_expi = 0, 25, 0, 0, 0
 pressure_O2, temperature_O2, flow_O2, vol_O2, pressure_offset_O2 = 0, 25, 0, 0, 0
 if enable_inspi_rsc: 
-    flow_inspi_rsc = rsc.HRSC(spi_bus=3)
+    flow_inspi_rsc = rsc.HRSC(spi_bus = 3)
     flow_inspi_rsc.sensor_info()
     flow_inspi_rsc.reset()
 if enable_expi_rsc: 
-    flow_expi_rsc = rsc.HRSC(spi_bus=0)
+    flow_expi_rsc = rsc.HRSC(spi_bus = 0)
     flow_expi_rsc.sensor_info()
     flow_expi_rsc.reset()
 if enable_O2_rsc: 
-    flow_O2_rsc = rsc.HRSC(spi_bus=4)
+    flow_O2_rsc = rsc.HRSC(spi_bus = 4)
     flow_O2_rsc.sensor_info()
     flow_O2_rsc.reset()
-time.sleep(delay_rsc)
+time.sleep(0.005)
 if enable_inspi_rsc: 
     flow_inspi_rsc.adc_configure()
     flow_inspi_rsc.set_speed(speed_rsc)
@@ -193,7 +194,7 @@ if enable_expi_rsc:
 if enable_O2_rsc: 
     flow_O2_rsc.adc_configure()
     flow_O2_rsc.set_speed(speed_rsc)
-time.sleep(delay_rsc)
+time.sleep(0.005)
 if enable_inspi_rsc: 
     flow_inspi_rsc.pressure_request()
 if enable_expi_rsc: 
@@ -213,19 +214,65 @@ if enable_O2_rsc:
 time.sleep(delay_rsc)
 if enable_inspi_rsc: 
     raw_temp_inspi = flow_inspi_rsc.temp_reply()
+    raw_zero_pressure_inspi = raw_pressure_inspi
+    raw_zero_temp_inspi = raw_temp_inspi
     pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
     pressure_offset_inspi = pressure_inspi
 if enable_expi_rsc: 
     raw_temp_expi = flow_expi_rsc.temp_reply()
+    raw_zero_pressure_expi = raw_pressure_expi
+    raw_zero_temp_expi = raw_temp_expi
     pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
     pressure_offset_expi = pressure_expi
 if enable_O2_rsc: 
     raw_temp_O2 = flow_O2_rsc.temp_reply()
+    raw_zero_pressure_O2 = raw_pressure_O2
+    raw_zero_temp_O2 = raw_temp_O2
     pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
     pressure_offset_O2 = pressure_O2
+# Auto-zero filter proposed by the documentation in the beginning (with valves closed)...
 i = 0
-# Filter to estimate the offset in the beginning (with valves closed)...
-while (i < 50):
+while (i < nb_count_filter_rsc):
+    if enable_inspi_rsc: 
+        flow_inspi_rsc.pressure_request()
+    if enable_expi_rsc: 
+        flow_expi_rsc.pressure_request()
+    if enable_O2_rsc: 
+        flow_O2_rsc.pressure_request()
+    time.sleep(delay_rsc)
+    if enable_inspi_rsc: 
+        raw_pressure_inspi = flow_inspi_rsc.pressure_reply()
+        flow_inspi_rsc.temp_request()
+    if enable_expi_rsc: 
+        raw_pressure_expi = flow_expi_rsc.pressure_reply()
+        flow_expi_rsc.temp_request()
+    if enable_O2_rsc: 
+        raw_pressure_O2 = flow_O2_rsc.pressure_reply()
+        flow_O2_rsc.temp_request()
+    time.sleep(delay_rsc)
+    if enable_inspi_rsc: 
+        raw_temp_inspi = flow_inspi_rsc.temp_reply()
+        raw_zero_pressure_inspi = (1-filter_coef)*raw_pressure_inspi+filter_coef*raw_zero_pressure_inspi
+        raw_zero_temp_inspi = (1-filter_coef)*raw_temp_inspi+filter_coef*raw_zero_temp_inspi
+    if enable_expi_rsc: 
+        raw_temp_expi = flow_expi_rsc.temp_reply()
+        raw_zero_pressure_expi = (1-filter_coef)*raw_pressure_expi+filter_coef*raw_zero_pressure_expi
+        raw_zero_temp_expi = (1-filter_coef)*raw_temp_expi+filter_coef*raw_zero_temp_expi
+    if enable_O2_rsc: 
+        raw_temp_O2 = flow_O2_rsc.temp_reply()
+        raw_zero_pressure_O2 = (1-filter_coef)*raw_pressure_O2+filter_coef*raw_zero_pressure_O2
+        raw_zero_temp_O2 = (1-filter_coef)*raw_temp_O2+filter_coef*raw_zero_temp_O2
+    i = i+1
+# Store auto-zero info...
+if enable_inspi_rsc: 
+    flow_inspi_rsc.comp_auto_zero(raw_zero_pressure_inspi, raw_zero_temp_inspi)
+if enable_expi_rsc: 
+    flow_expi_rsc.comp_auto_zero(raw_zero_pressure_expi, raw_zero_temp_expi)
+if enable_O2_rsc: 
+    flow_O2_rsc.comp_auto_zero(raw_zero_pressure_O2, raw_zero_temp_O2)
+# Additional filter to estimate the offset in the beginning (with valves closed)...
+i = 0
+while (i < nb_count_filter_rsc):
     if enable_inspi_rsc: 
         flow_inspi_rsc.pressure_request()
     if enable_expi_rsc: 
@@ -532,7 +579,7 @@ while True:
     except:
         buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP I: %0.4f inchH2O \tP off. I: %0.4f inchH2O \tP E: %0.4f inchH2O \tP off. E: %0.4f inchH2O \tP O: %0.4f inchH2O \tP off. O: %0.4f inchH2O') % (
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP I: %0.5f inchH2O \tP off. I: %0.5f inchH2O \tP E: %0.5f inchH2O \tP off. E: %0.5f inchH2O \tP O: %0.5f inchH2O \tP off. O: %0.5f inchH2O') % (
         t-t0, dt, p0, temperature0, p, temperature, pressure_inspi, pressure_offset_inspi, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2) 
     
     # Prepare next loop...
