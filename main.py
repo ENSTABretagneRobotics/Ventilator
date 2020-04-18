@@ -73,9 +73,10 @@ A1 = math.pi*R1**2
 A2 = math.pi*R2**2
 speed_rsc = 175 # In SPS
 delay_rsc = 0.010
-filter_coef = 0.95
-nb_count_filter_rsc = 100
-flow_thresh = 10 # In L/min
+coef_filter_rsc = 0.95
+nb_count_auto_zero_filter_rsc = 100
+nb_count_offset_filter_rsc = 100
+flow_thresh = 7.5 # In L/min
 debug = True
 ###############################################################################
 
@@ -217,22 +218,25 @@ if enable_inspi_rsc:
     raw_zero_pressure_inspi = raw_pressure_inspi
     raw_zero_temp_inspi = raw_temp_inspi
     pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
+    pressure_inspi = flow_inspi_rsc.conv_pressure_to_mbar(pressure_inspi)
     pressure_offset_inspi = pressure_inspi
 if enable_expi_rsc: 
     raw_temp_expi = flow_expi_rsc.temp_reply()
     raw_zero_pressure_expi = raw_pressure_expi
     raw_zero_temp_expi = raw_temp_expi
     pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
+    pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
     pressure_offset_expi = pressure_expi
 if enable_O2_rsc: 
     raw_temp_O2 = flow_O2_rsc.temp_reply()
     raw_zero_pressure_O2 = raw_pressure_O2
     raw_zero_temp_O2 = raw_temp_O2
     pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
+    pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
     pressure_offset_O2 = pressure_O2
 # Auto-zero filter proposed by the documentation in the beginning (with valves closed)...
 i = 0
-while (i < nb_count_filter_rsc):
+while (i < nb_count_auto_zero_filter_rsc):
     if enable_inspi_rsc: 
         flow_inspi_rsc.pressure_request()
     if enable_expi_rsc: 
@@ -252,27 +256,28 @@ while (i < nb_count_filter_rsc):
     time.sleep(delay_rsc)
     if enable_inspi_rsc: 
         raw_temp_inspi = flow_inspi_rsc.temp_reply()
-        raw_zero_pressure_inspi = (1-filter_coef)*raw_pressure_inspi+filter_coef*raw_zero_pressure_inspi
-        raw_zero_temp_inspi = (1-filter_coef)*raw_temp_inspi+filter_coef*raw_zero_temp_inspi
+        raw_zero_pressure_inspi = (1-coef_filter_rsc)*raw_pressure_inspi+coef_filter_rsc*raw_zero_pressure_inspi
+        raw_zero_temp_inspi = (1-coef_filter_rsc)*raw_temp_inspi+coef_filter_rsc*raw_zero_temp_inspi
     if enable_expi_rsc: 
         raw_temp_expi = flow_expi_rsc.temp_reply()
-        raw_zero_pressure_expi = (1-filter_coef)*raw_pressure_expi+filter_coef*raw_zero_pressure_expi
-        raw_zero_temp_expi = (1-filter_coef)*raw_temp_expi+filter_coef*raw_zero_temp_expi
+        raw_zero_pressure_expi = (1-coef_filter_rsc)*raw_pressure_expi+coef_filter_rsc*raw_zero_pressure_expi
+        raw_zero_temp_expi = (1-coef_filter_rsc)*raw_temp_expi+coef_filter_rsc*raw_zero_temp_expi
     if enable_O2_rsc: 
         raw_temp_O2 = flow_O2_rsc.temp_reply()
-        raw_zero_pressure_O2 = (1-filter_coef)*raw_pressure_O2+filter_coef*raw_zero_pressure_O2
-        raw_zero_temp_O2 = (1-filter_coef)*raw_temp_O2+filter_coef*raw_zero_temp_O2
+        raw_zero_pressure_O2 = (1-coef_filter_rsc)*raw_pressure_O2+coef_filter_rsc*raw_zero_pressure_O2
+        raw_zero_temp_O2 = (1-coef_filter_rsc)*raw_temp_O2+coef_filter_rsc*raw_zero_temp_O2
     i = i+1
 # Store auto-zero info...
-if enable_inspi_rsc: 
-    flow_inspi_rsc.comp_auto_zero(raw_zero_pressure_inspi, raw_zero_temp_inspi)
-if enable_expi_rsc: 
-    flow_expi_rsc.comp_auto_zero(raw_zero_pressure_expi, raw_zero_temp_expi)
-if enable_O2_rsc: 
-    flow_O2_rsc.comp_auto_zero(raw_zero_pressure_O2, raw_zero_temp_O2)
+if (nb_count_auto_zero_filter_rsc > 0):
+    if enable_inspi_rsc: 
+        flow_inspi_rsc.comp_auto_zero(raw_zero_pressure_inspi, raw_zero_temp_inspi)
+    if enable_expi_rsc: 
+        flow_expi_rsc.comp_auto_zero(raw_zero_pressure_expi, raw_zero_temp_expi)
+    if enable_O2_rsc: 
+        flow_O2_rsc.comp_auto_zero(raw_zero_pressure_O2, raw_zero_temp_O2)
 # Additional filter to estimate the offset in the beginning (with valves closed)...
 i = 0
-while (i < nb_count_filter_rsc):
+while (i < nb_count_offset_filter_rsc):
     if enable_inspi_rsc: 
         flow_inspi_rsc.pressure_request()
     if enable_expi_rsc: 
@@ -293,16 +298,23 @@ while (i < nb_count_filter_rsc):
     if enable_inspi_rsc: 
         raw_temp_inspi = flow_inspi_rsc.temp_reply()
         pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
-        pressure_offset_inspi = (1-filter_coef)*pressure_inspi+filter_coef*pressure_offset_inspi
+        pressure_inspi = flow_inspi_rsc.conv_pressure_to_mbar(pressure_inspi)
+        pressure_offset_inspi = (1-coef_filter_rsc)*pressure_inspi+coef_filter_rsc*pressure_offset_inspi
     if enable_expi_rsc: 
         raw_temp_expi = flow_expi_rsc.temp_reply()
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
-        pressure_offset_expi = (1-filter_coef)*pressure_expi+filter_coef*pressure_offset_expi
+        pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
+        pressure_offset_expi = (1-coef_filter_rsc)*pressure_expi+coef_filter_rsc*pressure_offset_expi
     if enable_O2_rsc: 
         raw_temp_O2 = flow_O2_rsc.temp_reply()
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
-        pressure_offset_O2 = (1-filter_coef)*pressure_O2+filter_coef*pressure_offset_O2
+        pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
+        pressure_offset_O2 = (1-coef_filter_rsc)*pressure_O2+coef_filter_rsc*pressure_offset_O2
     i = i+1
+if (nb_count_offset_filter_rsc <= 0):
+    pressure_offset_inspi = 0
+    pressure_offset_expi = 0
+    pressure_offset_O2 = 0
 
 respi_rate_converted = respi_rate*(1.0/60.0) # In breaths/s
 cycle_duration = 1.0/respi_rate_converted
@@ -337,7 +349,7 @@ pwm1_ns = pwm1_ns_min
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_prop_val;valve_inspi_val;valve_expi_val;pressure_inspi (in inchH2O);pressure_expi (in inchH2O);pressure_O2 (in inchH2O);temperature_inspi (in C);temperature_expi (in C);temperature_O2 (in C);flow_inspi (in L/min);flow_expi (in L/min);flow_O2 (in L/min);vol_inspi (in L);vol_expi (in L);vol_O2 (in L);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;assist;pwm0_ns;pwm1_ns;valve_prop_val;valve_inspi_val;valve_expi_val;pressure_inspi (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_inspi (in C);temperature_expi (in C);temperature_O2 (in C);flow_inspi (in L/min);flow_expi (in L/min);flow_O2 (in L/min);vol_inspi (in L);vol_expi (in L);vol_O2 (in L);\n')
 except:
     pass
 
@@ -547,23 +559,26 @@ while True:
             raw_temp_O2 = flow_O2_rsc.temp_reply()
     if enable_inspi_rsc: 
         pressure_inspi, temperature_inspi = flow_inspi_rsc.comp_readings(raw_pressure_inspi, raw_temp_inspi)
+        pressure_inspi = flow_inspi_rsc.conv_pressure_to_mbar(pressure_inspi)
         pressure_inspi = pressure_inspi-pressure_offset_inspi
         rho_air_inspi = 1.292*(273.15/(273.15+temperature_inspi)) # In kg/m3
-        vel_inspi = np.sign(pressure_inspi)*math.sqrt(2*(np.abs(pressure_inspi)*248.84)/(rho_air_inspi*((A1/A2)**2-1)))
+        vel_inspi = np.sign(pressure_inspi)*math.sqrt(2*(np.abs(pressure_inspi)*100.0)/(rho_air_inspi*((A1/A2)**2-1)))
         flow_inspi = A1*vel_inspi
         if (np.abs(flow_inspi) > flow_thresh/60000.0): vol_inspi = vol_inspi + dt*flow_inspi
     if enable_expi_rsc: 
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temp_expi)
+        pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
         pressure_expi = pressure_expi-pressure_offset_expi
         rho_air_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
-        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(np.abs(pressure_expi)*248.84)/(rho_air_expi*((A1/A2)**2-1)))
+        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(np.abs(pressure_expi)*100.0)/(rho_air_expi*((A1/A2)**2-1)))
         flow_expi = A1*vel_expi
         if (np.abs(flow_expi) > flow_thresh/60000.0): vol_expi = vol_expi + dt*flow_expi
     if enable_O2_rsc: 
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temp_O2)
+        pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
         pressure_O2 = pressure_O2-pressure_offset_O2
         rho_air_O2 = 1.292*(273.15/(273.15+temperature_O2)) # In kg/m3
-        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(np.abs(pressure_O2)*248.84)/(rho_air_O2*((A1/A2)**2-1)))
+        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(np.abs(pressure_O2)*100.0)/(rho_air_O2*((A1/A2)**2-1)))
         flow_O2 = A1*vel_O2
         if (np.abs(flow_O2) > flow_thresh/60000.0): vol_O2 = vol_O2 + dt*flow_O2
 
@@ -579,7 +594,7 @@ while True:
     except:
         buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP I: %0.5f inchH2O \tP off. I: %0.5f inchH2O \tP E: %0.5f inchH2O \tP off. E: %0.5f inchH2O \tP O: %0.5f inchH2O \tP off. O: %0.5f inchH2O') % (
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP I: %0.5f mbar \tP off. I: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
         t-t0, dt, p0, temperature0, p, temperature, pressure_inspi, pressure_offset_inspi, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2) 
     
     # Prepare next loop...

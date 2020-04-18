@@ -165,7 +165,7 @@ class HRSC(object):
         b = self.conv_to_short(self.sensor_rom[450], self.sensor_rom[451])
         print(b, self.sensor_rom[450:452])
         print('\033[0;39m')
-    
+   
     def set_speed(self, data_rate): # In SPS
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
@@ -370,3 +370,15 @@ class HRSC(object):
         self.PCompr = (PComp_FS * PRange) + Pmin #[Engineering Units]
         #print "\033[1;33mPComp out = %f" % self.PCompr
         return self.PCompr, temperature
+ 
+    def conv_pressure_to_mbar(self, pressure_in_sensor_unit):
+        sensor_unit = str(bytearray(self.sensor_rom[35:40]))
+        output = 0
+        if (sensor_unit.lower() == 'mbar'.lower()): output = pressure_in_sensor_unit
+        elif (sensor_unit.lower() == 'bar'.lower()): output = pressure_in_sensor_unit*1000.0
+        elif (sensor_unit.lower() == 'Pa'.lower()): output = pressure_in_sensor_unit*0.01
+        elif (sensor_unit.lower() == 'kPa'.lower()): output = pressure_in_sensor_unit*10.0
+        elif (sensor_unit.lower() == 'MPa'.lower()): output = pressure_in_sensor_unit*10000.0
+        elif (sensor_unit.lower() == 'inH2O'.lower()): output = pressure_in_sensor_unit*2.4884
+        elif (sensor_unit.lower() == 'psi'.lower()): output = pressure_in_sensor_unit*68.9476
+        return output
