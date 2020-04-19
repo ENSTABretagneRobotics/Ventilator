@@ -269,7 +269,7 @@ class HRSC(object):
         return tempval
         #return _t_raw
     
-    def read_temperature(self, delay):
+    def read_temperature(self, delay = 0.050):
         self.temperature_request()
         time.sleep(delay)
         return self.temperature_reply()
@@ -313,7 +313,7 @@ class HRSC(object):
              pdatad = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
              return pdatad
 
-    def read_pressure(self, delay):
+    def read_pressure(self, delay = 0.050):
         self.pressure_request()
         time.sleep(delay)
         return self.pressure_reply()

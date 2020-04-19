@@ -174,14 +174,21 @@ while True:
                             wintitle = '[I:E: {:.2f}]'
                             win.setWindowTitle(wintitle.format(inspi_ratio))
                         elif (select == 4): 
-                            wintitle = '[O:A: {:.2f}]'
-                            win.setWindowTitle(wintitle.format(O2_air_ratio))
+                            if (O2_air_ratio < 0):
+                                win.setWindowTitle('[O:A: NA]')
+                            else:
+                                wintitle = '[O:A: {:.2f}]'
+                                win.setWindowTitle(wintitle.format(O2_air_ratio))
                         elif (select == 5): 
                             wintitle = '[Flow: {:d}]'
                             win.setWindowTitle(wintitle.format(int(flow_limit)))
                         else: 
-                            wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, O:A: {:.2f}, Flow: {:d}'
-                            win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, O2_air_ratio, int(flow_limit)))
+                            if (O2_air_ratio < 0):
+                                wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, O:A: NA, Flow: {:d}'
+                                win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_limit)))
+                            else:
+                                wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, O:A: {:.2f}, Flow: {:d}'
+                                win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, O2_air_ratio, int(flow_limit)))
                         plt.setTitle('Temperature: {:.2f} C'.format(temperature))
                         plt2.setTitle('Temp. I: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 

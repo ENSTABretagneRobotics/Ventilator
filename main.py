@@ -2,7 +2,7 @@
 import RPi.GPIO as GPIO
 import ms5837 # From https://github.com/bluerobotics/ms5837-python
 import rsc # From https://github.com/tin-/ascp
-#import hsc
+import hsc
 import numpy as np
 import math
 import sys
@@ -12,9 +12,10 @@ import threading
 from timeit import default_timer as timer
 #from utils import *
 
-#sudo apt-get install python-smbus
+#sudo apt-get install python-smbus python-spidev
 # or
 #sudo pip install smbus
+#sudo pip install spidev
 # if it did not work.
 # Raspberry Pi 4 configuration (GPIO that will be used : 0 for software PWM O2
 # valve[, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2)], 2, 3 for 
@@ -25,16 +26,13 @@ from timeit import default_timer as timer
 # (expiration), 22, 23 for I2C6 Bar02 (room), 24 for software PWM air valve, 
 # 25 for POWER button), 26 for software PWM buzzer :
 #sudo nano /boot/config.txt
-# Add in /boot/config.txt (SPI6 will appear as 3...?)
+# Add in /boot/config.txt (SPI6 might appear as 3, check /dev...)
 #dtparam=i2c_arm=on
 #dtoverlay=i2c-gpio,bus=6,i2c_gpio_delay_us=1,i2c_gpio_sda=22,i2c_gpio_scl=23
 ##dtoverlay=i2c-gpio,bus=3,i2c_gpio_delay_us=1,i2c_gpio_sda=4,i2c_gpio_scl=5
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
 #dtparam=spi=on
-##dtoverlay=spi0-cs,cs1_pin=40
-##dtoverlay=spi3-2cs
-##dtoverlay=spi4-2cs
-##dtoverlay=spi5-2cs
+##dtoverlay=spi3-2cs,cs0_pin=14,cs1_pin=15
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
 # Then reboot and
@@ -46,34 +44,35 @@ Ppeak = 25 # In mbar (= approx. cmH2O)
 PEEP = 5 # In mbar (= approx. cmH2O)
 respi_rate = 15 # In breaths/min
 inspi_ratio = 0.3
-O2_air_ratio = 0
-flow_limit = 120 # In L/min
+O2_air_ratio = -0.05 # < 0 means no ratio control...
+flow_limit = 120 # In L/min, >= 120 means no limit...
 assist = 0
 #trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
 pwm1_ns_min = 1500000
 pwm1_ns_max = 2000000
+Ppeak_step = 1
 Ppeak_min = 0
 Ppeak_max = 100
-Ppeak_step = 1
+PEEP_step = 1
 PEEP_min = 0
 PEEP_max = 100
-PEEP_step = 1
+respi_rate_step = 1
 respi_rate_min = 0
 respi_rate_max = 100
-respi_rate_step = 1
+inspi_ratio_step = 0.05
 inspi_ratio_min = 0.05
 inspi_ratio_max = 0.95
-inspi_ratio_step = 0.05
-O2_air_ratio_min = 0.00
-O2_air_ratio_max = 1.00
 O2_air_ratio_step = 0.05
+O2_air_ratio_min = -0.05
+O2_air_ratio_max = 1.00
+flow_limit_step = 5
 flow_limit_min = 0
 flow_limit_max = 120
-flow_limit_step = 5
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
+enable_p_hsc = False
 enable_air_rsc = True
 enable_expi_rsc = False
 enable_O2_rsc = True
@@ -149,7 +148,7 @@ GPIO.setup(down_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 down_button_val = GPIO.input(down_button_pin)
 down_button_val_prev = down_button_val
 
-# Bar02
+# Bar02, HSC
 if enable_p_ms5837:
     p_ms5837 = ms5837.MS5837_02BA(bus = 1)
     try:
@@ -180,15 +179,34 @@ if enable_p0_ms5837:
         if not p0_ms5837.init():
             print('P0 sensor could not be initialized')
             exit(1)
+if enable_p_hsc:
+    try:
+        p_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+    except:
+        print('HSC sensor could not be initialized')
+        time.sleep(0.1)
+        try:
+            p_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+        except:
+            print('HSC sensor could not be initialized')
+            exit(1)
 # The very first pressure measurements might be wrong...
 i = 0
 while (i < 5):
     if enable_p_ms5837:
         if not p_ms5837.read(ms5837.OSR_256):
             print('P sensor read failed!')
+            time.sleep(0.1)
     if enable_p0_ms5837:
         if not p0_ms5837.read(ms5837.OSR_256):
             print('P0 sensor read failed!')
+            time.sleep(0.1)
+    if enable_p_hsc:
+        try:
+            p_hsc.read_pressure()
+        except:
+            print('HSC sensor read failed!')
+            time.sleep(0.1)
     i = i+1
 
 # Honeywell RSC
@@ -351,12 +369,14 @@ t_cycle_start = t
 p0 = 1000
 p = 1000
 if enable_p_ms5837: p = p_ms5837.pressure()
+if enable_p_hsc: p = p0+p_hsc.conv_pressure_to_mbar(p_hsc.read_pressure())
 p_prev = p
 p_cycle_start = p
 p0 = p
 if enable_p0_ms5837: p0 = p0_ms5837.pressure() 
 temperature = 25
 if enable_p_ms5837: temperature = p_ms5837.temperature()
+if enable_p_hsc: temperature = p_hsc.read_temperature()
 temperature0 = temperature
 if enable_p0_ms5837: temperature0 = p0_ms5837.temperature()
 Ppeak_reached = False
@@ -537,6 +557,19 @@ while True:
                 print('P sensor read failed!')
                 buz_pwm.ChangeDutyCycle(50)
                 exit(1)
+    elif enable_p_hsc:
+        try:
+            p_diff_hsc, temp_tmp_hsc = p_hsc.read()
+        except:
+            print('HSC sensor read failed!')
+            time.sleep(0.1)
+            try:
+                p_diff_hsc, temp_tmp_hsc = p_hsc.read()
+            except:
+                print('HSC sensor read failed!')
+                time.sleep(0.1)
+                buz_pwm.ChangeDutyCycle(50)
+                exit(1)
     else:
         time.sleep(0.005)
     if enable_air_rsc: 
@@ -647,16 +680,16 @@ while True:
         if (flow_limit < flow_limit_max):
             flow_mix = flow_filtered_air+flow_filtered_O2 # Should be controlled around flow_limit...
             err_flow_mix = (flow_limit-flow_mix)/flow_limit
-            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_limit_coef*err_flow_mix))
-            valve_O2_val_max =  min(1, max(100, valve_O2_val_max+valve_flow_limit_coef*err_flow_mix))
+            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_limit_coef*err_flow_mix)) # Min is 1 to not disable proportional valves control...
+            valve_O2_val_max =  min(1, max(100, valve_O2_val_max+valve_flow_limit_coef*err_flow_mix)) # Min is 1 to not disable proportional valves control...
         else:
             valve_air_val_max = 100
             valve_O2_val_max = 100
-        if (O2_air_ratio > 0):
+        if (O2_air_ratio >= 0): # < 0 means no ratio control...
             flow_mix_ratio = flow_filtered_O2/flow_filtered_air # Should be controlled around O2_air_ratio...
             err_flow_mix_ratio = O2_air_ratio-flow_mix_ratio
-            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_mix_ratio_coef*err_flow_mix_ratio))
-            valve_O2_val_max =  min(1, max(100, valve_O2_val_max-valve_flow_mix_ratio_coef*err_flow_mix_ratio))
+            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_mix_ratio_coef*err_flow_mix_ratio)) # Min is 1 to not disable proportional valves control...
+            valve_O2_val_max =  min(1, max(100, valve_O2_val_max-valve_flow_mix_ratio_coef*err_flow_mix_ratio)) # Min is 1 to not disable proportional valves control...
 
     # Log file
     # File errors are not critical...
@@ -681,6 +714,9 @@ while True:
     if enable_p_ms5837:
         p = p_ms5837.pressure()
         temperature = p_ms5837.temperature()
+    elif enable_p_hsc:
+        p = p0+p_diff_hsc
+        temperature = temp_tmp_hsc
     if (t-t_cycle_start > cycle_duration_estim):
         t_cycle_start = t
         p_cycle_start = p
