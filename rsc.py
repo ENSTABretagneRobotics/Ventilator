@@ -385,8 +385,20 @@ class HRSC(object):
 
     # DO NOT USE, TO TRY TO REPAIR ERASED DEVICES...
     def dump_eeprom(self):
-        return 
+        file = open('eeprom_rsc.txt', 'w')        
+        for byte in self.sensor_rom:
+            file.write('{:d} '.format(byte))
+        file.close()
 
     # DO NOT USE, TO TRY TO REPAIR ERASED DEVICES...
     def erase_eeprom(self):
-        return 
+        file = open('eeprom_rsc.txt', 'r')       
+        data = file.readlines()
+        i = 0
+        cols = data[0].split(' ')
+        for val in cols:
+            #print(int(val))
+            self.sensor_rom[i] = int(val)
+            i = i+1
+            if i >= len(self.sensor_rom): break
+        file.close()

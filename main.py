@@ -18,16 +18,18 @@ from timeit import default_timer as timer
 #sudo pip install spidev
 # if it did not work.
 # Raspberry Pi 4 configuration (GPIO that will be used : 0 for software PWM O2
-# valve[, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2)], 2, 3 for 
-# I2C1 Bar02 (tube), 4 for digital input SELECT button, 5, 6 for digital 
-# output, 7, 8, 9, 10, 11 for SPI0 Honeywell RSC for flow (air), valves, 12, 
-# 13 for PWM servomotors, 16 for digital input UP button, 17 for digital 
-# input DOWN button, 18, 19, 20, 21, 27 for SPI6 Honeywell RSC for flow 
-# (expiration), 22, 23 for I2C6 Bar02 (room), 24 for software PWM air valve, 
-# 25 for POWER button), 26 for software PWM buzzer :
+# valve, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2, exclusive with 
+# I2C1 Bar02), 2, 3 for I2C1 Bar02 (tube), 4 for digital input SELECT button, 
+# 5, 6 for digital output, 7, 8, 9, 10, 11 for SPI0 Honeywell RSC for flow 
+# (air), valves, 12, 13 for PWM servomotors, 16 for digital input UP button, 
+# 17 for digital input DOWN button, 18, 19, 20, 21, 27 for SPI6 Honeywell RSC
+# for flow (expiration), 22, 23 for I2C6 Bar02 (room)/Honeywell HSC (tube), 24 
+# for software PWM air valve, 25 for POWER button), 26 for software PWM 
+# buzzer :
 #sudo nano /boot/config.txt
 # Add in /boot/config.txt (SPI6 might appear as 3, check /dev...)
 #dtparam=i2c_arm=on
+##dtoverlay=i2c1,pins_44_45
 #dtoverlay=i2c-gpio,bus=6,i2c_gpio_delay_us=1,i2c_gpio_sda=22,i2c_gpio_scl=23
 ##dtoverlay=i2c-gpio,bus=3,i2c_gpio_delay_us=1,i2c_gpio_sda=4,i2c_gpio_scl=5
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
@@ -35,6 +37,7 @@ from timeit import default_timer as timer
 ##dtoverlay=spi3-2cs,cs0_pin=14,cs1_pin=15
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
+##enable_uart=0
 # Then reboot and
 #sudo -E python main.py
 

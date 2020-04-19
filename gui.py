@@ -44,7 +44,7 @@ plt2 = win.addPlot()
 plt.showGrid(x = True, y = True)
 plt2.showGrid(x = True, y = True)
 plt.setTitle('Temperature: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
-plt2.setTitle('Temp. I: 25.00 C, Temp. E: 25.00 C, Temp. O: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
+plt2.setTitle('Temp. A: 25.00 C, Temp. E: 25.00 C, Temp. O: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
 plt.setLabel('left', 'Pressure (in cmH2O)', **{'color': '#FFF', 'font-size': '10pt'})
 plt2.setLabel('left', 'Flow (in L/min)', **{'color': '#FFF', 'font-size': '10pt'})
 plt2.setLabel('right', 'Volume (in cl)', **{'color': '#FFF', 'font-size': '10pt'})
@@ -190,7 +190,7 @@ while True:
                                 wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, O:A: {:.2f}, Flow: {:d}'
                                 win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, O2_air_ratio, int(flow_limit)))
                         plt.setTitle('Temperature: {:.2f} C'.format(temperature))
-                        plt2.setTitle('Temp. I: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
+                        plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
