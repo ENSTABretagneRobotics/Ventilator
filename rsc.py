@@ -238,7 +238,7 @@ class HRSC(object):
         #print "RAW: %s %s , %4.3f" % (hex(raw_temp), hex(raw), temp )
         return temp
     
-    def temp_request(self):
+    def temperature_request(self):
         # Clear EEPROM SS , assert ADC SS, set mode 1 for ADC
         self.spi.open(self.spi_bus, 0)
         self.spi.max_speed_hz = self.spi_max_speed_hz
@@ -254,12 +254,12 @@ class HRSC(object):
         #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
         test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
     
-    def temp_reply(self):
+    def temperature_reply(self):
         adc_data = self.spi.xfer([0,0,self.command, self.reg_wr], self.spi_speed_hz)
         #print "RDATA = ",
         #print adc_data
-        temp_data = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
-        tempval = self.convert_temp(temp_data)
+        temperature_data = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
+        tempval = self.convert_temp(temperature_data)
 
         # first 14 bits represent temperature
         # following 10 bits are random thus discarded
@@ -269,10 +269,10 @@ class HRSC(object):
         return tempval
         #return _t_raw
     
-    def read_temp(self, delay):
-        self.temp_request()
+    def read_temperature(self, delay):
+        self.temperature_request()
         time.sleep(delay)
-        return self.temp_reply()
+        return self.temperature_reply()
 
     def twos_complement(self, byte_arr):
         a = byte_arr[0]; b = byte_arr[1]; c = byte_arr[2]
@@ -382,3 +382,11 @@ class HRSC(object):
         elif (sensor_unit.lower() == 'inH2O'.lower()): output = pressure_in_sensor_unit*2.4884
         elif (sensor_unit.lower() == 'psi'.lower()): output = pressure_in_sensor_unit*68.9476
         return output
+
+    # DO NOT USE, TO TRY TO REPAIR ERASED DEVICES...
+    def dump_eeprom(self):
+        return 
+
+    # DO NOT USE, TO TRY TO REPAIR ERASED DEVICES...
+    def erase_eeprom(self):
+        return 
