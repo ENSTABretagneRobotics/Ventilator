@@ -48,8 +48,8 @@ PEEP = 5 # In mbar (= approx. cmH2O)
 respi_rate = 15 # In breaths/min
 inspi_ratio = 0.3
 O2_air_ratio = -0.05 # < 0 means no ratio control...
-flow_limit = 120 # In L/min, >= 120 means no limit...
-assist = 0
+flow_control = 120 # In L/min, >= 120 means no limit...
+mode = 0 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
 #trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
@@ -65,14 +65,17 @@ respi_rate_step = 1
 respi_rate_min = 0
 respi_rate_max = 100
 inspi_ratio_step = 0.05
-inspi_ratio_min = 0.05
-inspi_ratio_max = 0.95
+inspi_ratio_min = 0.00
+inspi_ratio_max = 1.00
 O2_air_ratio_step = 0.05
 O2_air_ratio_min = -0.05
 O2_air_ratio_max = 1.00
-flow_limit_step = 5
-flow_limit_min = 0
-flow_limit_max = 120
+flow_control_step = 5
+flow_control_min = 0
+flow_control_max = 120
+mode_step = 1
+mode_min = 0
+mode_max = 2
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
 enable_p_hsc = False
@@ -91,9 +94,10 @@ nb_count_auto_zero_filter_rsc = 100
 nb_count_offset_filter_rsc = 100
 valves_delay = 0.2 # In s
 coef_offset_filter_flow = 0.99
+coef_filter_flow = 0.9
 flow_thresh = 5 # In L/min
-valve_flow_limit_coef = 50
-valve_flow_mix_ratio_coef = 50
+valve_flow_control_coef = 5.0
+valve_flow_mix_ratio_coef = 5.0
 debug = True
 ###############################################################################
 
@@ -137,7 +141,7 @@ GPIO.setup(valve_expi_pin, GPIO.OUT, initial = valve_expi_val)
 
 # Digital inputs (buttons)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
-parameters = ['Ppeak', 'PEEP', 'respi_rate', 'inspi_ratio', 'O2_air_ratio', 'flow_limit']
+parameters = ['Ppeak', 'PEEP', 'respi_rate', 'inspi_ratio', 'O2_air_ratio', 'flow_control', 'mode']
 select_button_pin = 4
 GPIO.setup(select_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 select_button_val = GPIO.input(select_button_pin)
@@ -398,7 +402,7 @@ t_all_valves_closed = 0
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;O2_air_ratio;flow_limit (in L/min);assist;pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;O2_air_ratio;flow_control (in L/min);mode;pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
 except:
     pass
 
@@ -410,8 +414,10 @@ buz_pwm.ChangeDutyCycle(0)
 count = 0
 while True:
     if (t-t_cycle_start < inspi_duration_estim):
-        #pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
-        #pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        #if (inspi_duration_estim != 0): pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        #else: pwm0_ns = pwm0_ns_max
+        #if (inspi_duration_estim != 0): pwm1_ns = pwm1_ns_min+(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start)/inspi_duration_estim
+        #else: pwm1_ns = pwm1_ns_min
         pwm0_ns = pwm0_ns_min
         pwm1_ns = pwm1_ns_max
         PEEP_reached = False
@@ -420,23 +426,18 @@ while True:
             pwm0_ns = pwm0_ns_max
             pwm1_ns = pwm1_ns_min
             valve_air_val = 0
-            valve_air_pwm.ChangeDutyCycle(valve_air_val) 
             valve_O2_val = 0
-            valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
             valve_inspi_val = GPIO.LOW
-            GPIO.output(valve_inspi_pin, valve_inspi_val)
         else:
             valve_air_val = valve_air_val_max
-            valve_air_pwm.ChangeDutyCycle(valve_air_val) 
             valve_O2_val = valve_O2_val_max
-            valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
             valve_inspi_val = GPIO.HIGH
-            GPIO.output(valve_inspi_pin, valve_inspi_val)
         valve_expi_val = GPIO.LOW
-        GPIO.output(valve_expi_pin, valve_expi_val)
     else:
-        #pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
-        #pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        #if (expi_duration_estim != 0): pwm0_ns = pwm0_ns_min+(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        #else: pwm0_ns = pwm0_ns_max
+        #if (expi_duration_estim != 0): pwm1_ns = pwm1_ns_max-(pwm1_ns_max-pwm1_ns_min)*(t-t_cycle_start-inspi_duration_estim)/expi_duration_estim
+        #else: pwm1_ns = pwm1_ns_min
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
         Ppeak_reached = False
@@ -444,29 +445,40 @@ while True:
         #if (p-p0 < PEEP): # Should close valves to maintain PEEP...
             PEEP_reached = True
             valve_air_val = 0
-            valve_air_pwm.ChangeDutyCycle(valve_air_val) 
             valve_O2_val = 0
-            valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
-            valve_inspi_val = GPIO.LOW
-            GPIO.output(valve_inspi_pin, valve_inspi_val)
             valve_expi_val = GPIO.LOW
-            GPIO.output(valve_expi_pin, valve_expi_val)
         else:
             valve_air_val = 100 # Full to depress...
-            valve_air_pwm.ChangeDutyCycle(valve_air_val) 
             valve_O2_val = 0 # Should not spend O2 to depress...
-            valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
-            valve_inspi_val = GPIO.LOW
-            GPIO.output(valve_inspi_pin, valve_inspi_val)
             valve_expi_val = GPIO.HIGH
-            GPIO.output(valve_expi_pin, valve_expi_val)
+        valve_inspi_val = GPIO.LOW
+
+    if (mode == 2):
+        # Override to only make O2:Air mix...
+        # Balloon not handled...
+        if (p-p0 > Ppeak):
+            valve_air_val = 0
+            valve_O2_val = 0
+            valve_inspi_val = GPIO.LOW
+        else:
+            valve_air_val = valve_air_val_max
+            valve_O2_val = valve_O2_val_max
+            valve_inspi_val = GPIO.HIGH
+        valve_expi_val = GPIO.HIGH
+
+    # Actuators
     pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
     pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
-
     pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
     pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
     os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
     os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
+    valve_air_val = min(100, max(0, valve_air_val))
+    valve_O2_val = min(100, max(0, valve_O2_val))
+    valve_air_pwm.ChangeDutyCycle(valve_air_val) 
+    valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
+    GPIO.output(valve_inspi_pin, valve_inspi_val)
+    GPIO.output(valve_expi_pin, valve_expi_val)
 
     # Buttons to set parameters
     select_button_val = GPIO.input(select_button_pin)
@@ -496,8 +508,11 @@ while True:
                     O2_air_ratio = O2_air_ratio + O2_air_ratio_step
                     if (O2_air_ratio > O2_air_ratio_max): O2_air_ratio = O2_air_ratio_max
                 if (select == 5):
-                    flow_limit = flow_limit + flow_limit_step
-                    if (flow_limit > flow_limit_max): flow_limit = flow_limit_max
+                    flow_control = flow_control + flow_control_step
+                    if (flow_control > flow_control_max): flow_control = flow_control_max
+                if (select == 6):
+                    mode = mode + mode_step
+                    if (mode > mode_max): mode = mode_max
         down_button_val = GPIO.input(down_button_pin)
         if (down_button_val != down_button_val_prev):
             down_button_val_prev = down_button_val
@@ -518,8 +533,11 @@ while True:
                     O2_air_ratio = O2_air_ratio - O2_air_ratio_step
                     if (O2_air_ratio < O2_air_ratio_min): O2_air_ratio = O2_air_ratio_min
                 if (select == 5):
-                    flow_limit = flow_limit - flow_limit_step
-                    if (flow_limit < flow_limit_min): flow_limit = flow_limit_min
+                    flow_control = flow_control - flow_control_step
+                    if (flow_control < flow_control_min): flow_control = flow_control_min
+                if (select == 6):
+                    mode = mode - mode_step
+                    if (mode < mode_min): mode = mode_min
  
     # Sensors
     if enable_air_rsc: 
@@ -662,43 +680,54 @@ while True:
         flow_O2 = A1*vel_O2
 
     # Filters
-    # Should run low-pass or median filter before...?
-    if ((valve_air_val <= 0) and (valve_O2_val <= 0) and (valve_inspi_val <= 0) and (valve_expi_val <= 0)):
-        t_all_valves_closed = t
-        if (t_all_valves_closed-t_last_not_all_valves_closed > valves_delay):
-            flow_offset_air = (1-coef_offset_filter_flow)*flow_air+coef_offset_filter_flow*flow_offset_air
-            flow_offset_expi = (1-coef_offset_filter_flow)*flow_expi+coef_offset_filter_flow*flow_offset_expi
-            flow_offset_O2 = (1-coef_offset_filter_flow)*flow_O2+coef_offset_filter_flow*flow_offset_O2
-    else:
-        t_last_not_all_valves_closed = t
-    flow_filtered_air = flow_air-flow_offset_air
-    flow_filtered_expi = flow_expi-flow_offset_expi
-    flow_filtered_O2 = flow_O2-flow_offset_O2
+    # Offset...
+    #if ((valve_air_val <= 0) and (valve_O2_val <= 0) and (valve_inspi_val <= 0) and (valve_expi_val <= 0)):
+    #    t_all_valves_closed = t
+    #    if (t_all_valves_closed-t_last_not_all_valves_closed > valves_delay):
+    #        flow_offset_air = (1-coef_offset_filter_flow)*flow_air+coef_offset_filter_flow*flow_offset_air
+    #        flow_offset_expi = (1-coef_offset_filter_flow)*flow_expi+coef_offset_filter_flow*flow_offset_expi
+    #        flow_offset_O2 = (1-coef_offset_filter_flow)*flow_O2+coef_offset_filter_flow*flow_offset_O2
+    #else:
+    #    t_last_not_all_valves_closed = t
+    #flow_filtered_air = flow_air-flow_offset_air
+    #flow_filtered_expi = flow_expi-flow_offset_expi
+    #flow_filtered_O2 = flow_O2-flow_offset_O2
+    # Low-pass or median filter...
+    flow_filtered_air = (1-coef_filter_flow)*flow_air+coef_filter_flow*flow_filtered_air
+    flow_filtered_expi = (1-coef_filter_flow)*flow_expi+coef_filter_flow*flow_filtered_expi
+    flow_filtered_O2 = (1-coef_filter_flow)*flow_O2+coef_filter_flow*flow_filtered_O2
+    # Volume computation
     if (abs(flow_filtered_air) > flow_thresh/60000.0): vol_air = vol_air+dt*flow_filtered_air
     if (abs(flow_filtered_expi) > flow_thresh/60000.0): vol_expi = vol_expi+dt*flow_filtered_expi
     if (abs(flow_filtered_O2) > flow_thresh/60000.0): vol_O2 = vol_O2+dt*flow_filtered_O2
+    if (mode == 2):
+        # Override to only make O2:Air mix...
+        # Volume is not much meaningful...
+        vol_air = 0
+        vol_expi = 0
+        vol_O2 = 0
 
     # Proportional valves control
     if ((valve_air_val > 0) and (valve_O2_val > 0)):
-        if (flow_limit < flow_limit_max):
-            flow_mix = flow_filtered_air+flow_filtered_O2 # Should be controlled around flow_limit...
-            err_flow_mix = (flow_limit-flow_mix)/flow_limit
-            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_limit_coef*err_flow_mix)) # Min is 1 to not disable proportional valves control...
-            valve_O2_val_max =  min(1, max(100, valve_O2_val_max+valve_flow_limit_coef*err_flow_mix)) # Min is 1 to not disable proportional valves control...
+        if (flow_control < flow_control_max):
+            flow_mix = flow_filtered_air+flow_filtered_O2 # Should be controlled around flow_control...
+            err_flow_mix = (flow_control-flow_mix)/flow_control
+            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_control_coef*dt*err_flow_mix)) # Min > 0 to not disable proportional valves control...
+            valve_O2_val_max =  min(1, max(100, valve_O2_val_max+valve_flow_control_coef*dt*err_flow_mix))
         else:
             valve_air_val_max = 100
             valve_O2_val_max = 100
         if (O2_air_ratio >= 0): # < 0 means no ratio control...
             flow_mix_ratio = flow_filtered_O2/flow_filtered_air # Should be controlled around O2_air_ratio...
             err_flow_mix_ratio = O2_air_ratio-flow_mix_ratio
-            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_mix_ratio_coef*err_flow_mix_ratio)) # Min is 1 to not disable proportional valves control...
-            valve_O2_val_max =  min(1, max(100, valve_O2_val_max-valve_flow_mix_ratio_coef*err_flow_mix_ratio)) # Min is 1 to not disable proportional valves control...
+            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_mix_ratio_coef*dt*err_flow_mix_ratio)) # Min > 0 to not disable proportional valves control...
+            valve_O2_val_max =  min(1, max(100, valve_O2_val_max-valve_flow_mix_ratio_coef*dt*err_flow_mix_ratio))
 
     # Log file
     # File errors are not critical...
     try:
         line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, O2_air_ratio, flow_limit, assist, 
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, O2_air_ratio, flow_control, mode, 
                                pwm0_ns, pwm1_ns, valve_air_val, valve_O2_val, valve_inspi_val, valve_expi_val, 
                                pressure_air, pressure_expi, pressure_O2, temperature_air, temperature_expi, temperature_O2, 
                                flow_air*60000.0, flow_expi*60000.0, flow_O2*60000.0, flow_filtered_air*60000.0, flow_filtered_expi*60000.0, flow_filtered_O2*60000.0, vol_air*1000.0, vol_expi*1000.0, vol_O2*1000.0))
@@ -706,7 +735,7 @@ while True:
     except:
         buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP I: %0.5f mbar \tP off. I: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
+    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP A: %0.5f mbar \tP off. A: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
         t-t0, dt, p0, temperature0, p, temperature, pressure_air, pressure_offset_air, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2) 
     
     # Prepare next loop...
