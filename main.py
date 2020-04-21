@@ -17,27 +17,27 @@ from timeit import default_timer as timer
 #sudo pip install smbus
 #sudo pip install spidev
 # if it did not work.
-# Raspberry Pi 4 configuration (GPIO that will be used : 0 for software PWM O2
-# valve, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2, exclusive with 
-# I2C1 Bar02), 2, 3 for I2C1 Bar02 (tube), 4 for digital input SELECT button, 
-# 5, 6 for digital output, 7, 8, 9, 10, 11 for SPI0 Honeywell RSC for flow 
-# (air), valves, 12, 13 for PWM servomotors, 16 for digital input UP button, 
-# 17 for digital input DOWN button, 18, 19, 20, 21, 27 for SPI6 Honeywell RSC
-# for flow (expiration), 22, 23 for I2C6 Bar02 (room)/Honeywell HSC (tube), 24 
-# for software PWM air valve, 25 for POWER button), 26 for software PWM 
-# buzzer :
+# Raspberry Pi 4 configuration (GPIO that will be used : 0 for digital output
+# (expi), 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2)/2, 3 for 
+# software PWM air and O2 valves, 4, 5 for Honeywell HSC (inspi) and I2C3 Bar02
+# (inspi), 6 for digital output (inspi), 7, 8, 9, 10, 11 for SPI0 Honeywell RSC
+# for flow (air), 12, 13 for O2 and air valves/balloon PWM servomotors, 16 for 
+# digital input UP button, 17 for digital input DOWN button, 18, 19, 20, 21, 27
+# for SPI6 Honeywell RSC for flow (expiration), 22, 23 for Honeywell HSC 
+# (expi), I2C6 Bar02 (room), touchscreen, RTC clock, 24 for digital input 
+# SELECT button, 25 for POWER button), 26 for software PWM buzzer :
 #sudo nano /boot/config.txt
-# Add in /boot/config.txt (SPI6 might appear as 3, check /dev...)
+# Add/modify in /boot/config.txt (SPI6 might appear as 4, check /dev...)
+#enable_uart=0
 #dtparam=i2c_arm=on
-##dtoverlay=i2c1,pins_44_45
+#dtoverlay=i2c1,pins_44_45
+#dtoverlay=i2c-gpio,bus=3,i2c_gpio_delay_us=1,i2c_gpio_sda=4,i2c_gpio_scl=5
 #dtoverlay=i2c-gpio,bus=6,i2c_gpio_delay_us=1,i2c_gpio_sda=22,i2c_gpio_scl=23
-##dtoverlay=i2c-gpio,bus=3,i2c_gpio_delay_us=1,i2c_gpio_sda=4,i2c_gpio_scl=5
 #dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
 #dtparam=spi=on
-##dtoverlay=spi3-2cs,cs0_pin=14,cs1_pin=15
+#dtoverlay=spi3-2cs,cs0_pin=14,cs1_pin=15
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
-##enable_uart=0
 # Then reboot and
 #sudo -E python main.py
 
@@ -50,7 +50,8 @@ inspi_ratio = 0.3
 O2_air_ratio = -0.05 # < 0 means no ratio control...
 flow_control = 120 # In L/min, >= 120 means no limit...
 mode = 0 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
-#trim PWM value start, end depending on balloon size...
+# Advanced parameters
+# Trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
 pwm1_ns_min = 1500000
@@ -76,73 +77,118 @@ flow_control_max = 120
 mode_step = 1
 mode_min = 0
 mode_max = 2
+disable_hard_pwm = False
+enable_hard_pwm_air_O2_valves = True
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
-enable_p_hsc = False
+enable_p_inspi_hsc = False
+enable_p_expi_hsc = False
 enable_air_rsc = True
 enable_expi_rsc = False
 enable_O2_rsc = True
-R1 = 0.019100/2.0
-R2 = 0.011651/2.0
-#R2 = 0.006500/2.0
-A1 = math.pi*R1**2
-A2 = math.pi*R2**2
+R1_air = 0.019100/2.0
+R2_air = 0.011651/2.0
+#R2_air = 0.006500/2.0
+R1_expi = 0.019100/2.0
+R2_expi = 0.011651/2.0
+#R2_expi = 0.006500/2.0
+R1_O2 = 0.019100/2.0
+R2_O2 = 0.011651/2.0
+#R2_O2 = 0.006500/2.0
+A1_air = math.pi*R1_air**2
+A2_air = math.pi*R2_air**2
+A1_expi = math.pi*R1_expi**2
+A2_expi = math.pi*R2_expi**2
+A1_O2 = math.pi*R1_O2**2
+A2_O2 = math.pi*R2_O2**2
 speed_rsc = 175 # In SPS
 delay_rsc = 0.010
 coef_filter_rsc = 0.95
-nb_count_auto_zero_filter_rsc = 100
-nb_count_offset_filter_rsc = 100
+nb_count_auto_zero_filter_rsc = 0 # 100
+nb_count_offset_filter_rsc = 0 # 100
 valves_delay = 0.2 # In s
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.9
-flow_thresh = 5 # In L/min
+flow_thresh = 15 # In L/min
 valve_flow_control_coef = 5.0
 valve_flow_mix_ratio_coef = 5.0
 debug = True
 ###############################################################################
 
-# Software PWM init (for buzzer and proportional valves)
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
+
+# Software PWM init for buzzer
 buz_pin = 26
 GPIO.setup(buz_pin, GPIO.OUT)
 buz_pwm = GPIO.PWM(buz_pin, 4000)
 buz_pwm.start(50) # Startup beep...
-valve_air_pin = 24
-GPIO.setup(valve_air_pin, GPIO.OUT)
-valve_air_pwm = GPIO.PWM(valve_air_pin, 800)
+
+# Other PWM init
 valve_air_val_max = 100
 valve_air_val = 0
-valve_air_pwm.start(valve_air_val)
-valve_O2_pin = 0
-GPIO.setup(valve_O2_pin, GPIO.OUT)
-valve_O2_pwm = GPIO.PWM(valve_O2_pin, 800)
 valve_O2_val_max = 100
 valve_O2_val = 0
-valve_O2_pwm.start(valve_O2_val)
-
-# Hardware PWM init (for servos)
-os.system('echo 0 > /sys/class/pwm/pwmchip0/export')
-os.system('echo 1 > /sys/class/pwm/pwmchip0/export')
-os.system('echo 20000000 > /sys/class/pwm/pwmchip0/pwm0/period')
-os.system('echo 20000000 > /sys/class/pwm/pwmchip0/pwm1/period')
-os.system('echo 1500000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle')
-os.system('echo 1500000 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle')
-os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
-os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
+valve_air_val = min(100, max(0, valve_air_val))
+valve_O2_val = min(100, max(0, valve_O2_val))
+if not disable_hard_pwm:
+    os.system('echo 0 > /sys/class/pwm/pwmchip0/export')
+    os.system('echo 1 > /sys/class/pwm/pwmchip0/export')
+if not enable_hard_pwm_air_O2_valves:
+    # Hardware PWM for balloon servos
+    pwm_period = 20000000
+    pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
+    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
+    if not disable_hard_pwm:
+        os.system(pwm0_period_cmd.format(math.trunc(pwm_period)))
+        os.system(pwm1_period_cmd.format(math.trunc(pwm_period)))
+    pwm0_ns = pwm0_ns_max
+    pwm1_ns = pwm1_ns_min
+    pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
+    pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
+    pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
+    pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
+    if not disable_hard_pwm:
+        os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
+        os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
+    # Software PWM for air and O2 proportional valves
+    valve_air_pin = 2
+    GPIO.setup(valve_air_pin, GPIO.OUT)
+    valve_air_pwm = GPIO.PWM(valve_air_pin, 600)
+    valve_air_pwm.start(valve_air_val)
+    valve_O2_pin = 3
+    GPIO.setup(valve_O2_pin, GPIO.OUT)
+    valve_O2_pwm = GPIO.PWM(valve_O2_pin, 600)
+    valve_O2_pwm.start(valve_O2_val)
+else:
+    # Hardware PWM for air and O2 proportional valves
+    pwm_period = 1500000
+    pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
+    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
+    if not disable_hard_pwm:
+        os.system(pwm0_period_cmd.format(math.trunc(pwm_period)))
+        os.system(pwm1_period_cmd.format(math.trunc(pwm_period)))
+    pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
+    pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
+    if not disable_hard_pwm:
+        os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
+        os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
+if not disable_hard_pwm:
+    os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
+    os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
 
 # Digital outputs (valves)
 valve_inspi_pin = 6
 valve_inspi_val = GPIO.LOW
 GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = valve_inspi_val)
-valve_expi_pin = 5
+valve_expi_pin = 0
 valve_expi_val = GPIO.LOW
 GPIO.setup(valve_expi_pin, GPIO.OUT, initial = valve_expi_val)
 
 # Digital inputs (buttons)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
 parameters = ['Ppeak', 'PEEP', 'respi_rate', 'inspi_ratio', 'O2_air_ratio', 'flow_control', 'mode']
-select_button_pin = 4
+select_button_pin = 24
 GPIO.setup(select_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 select_button_val = GPIO.input(select_button_pin)
 select_button_val_prev = select_button_val
@@ -157,7 +203,7 @@ down_button_val_prev = down_button_val
 
 # Bar02, HSC
 if enable_p_ms5837:
-    p_ms5837 = ms5837.MS5837_02BA(bus = 1)
+    p_ms5837 = ms5837.MS5837_02BA(bus = 3)
     try:
         if not p_ms5837.init():
             print('P sensor could not be initialized')
@@ -186,16 +232,27 @@ if enable_p0_ms5837:
         if not p0_ms5837.init():
             print('P0 sensor could not be initialized')
             exit(1)
-if enable_p_hsc:
+if enable_p_inspi_hsc:
     try:
-        p_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+        p_inspi_hsc = hsc.HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
     except:
-        print('HSC sensor could not be initialized')
+        print('HSC I sensor could not be initialized')
         time.sleep(0.1)
         try:
-            p_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+            p_inspi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
         except:
-            print('HSC sensor could not be initialized')
+            print('HSC I sensor could not be initialized')
+            exit(1)
+if enable_p_expi_hsc:
+    try:
+        p_expi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+    except:
+        print('HSC E sensor could not be initialized')
+        time.sleep(0.1)
+        try:
+            p_expi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+        except:
+            print('HSC E sensor could not be initialized')
             exit(1)
 # The very first pressure measurements might be wrong...
 i = 0
@@ -208,11 +265,17 @@ while (i < 5):
         if not p0_ms5837.read(ms5837.OSR_256):
             print('P0 sensor read failed!')
             time.sleep(0.1)
-    if enable_p_hsc:
+    if enable_p_inspi_hsc:
         try:
-            p_hsc.read_pressure()
+            p_inspi_hsc.read_pressure()
         except:
-            print('HSC sensor read failed!')
+            print('HSC I sensor read failed!')
+            time.sleep(0.1)
+    if enable_p_expi_hsc:
+        try:
+            p_expi_hsc.read_pressure()
+        except:
+            print('HSC E sensor read failed!')
             time.sleep(0.1)
     i = i+1
 
@@ -375,15 +438,19 @@ t0 = t
 t_cycle_start = t
 p0 = 1000
 p = 1000
+p_e = 1000
 if enable_p_ms5837: p = p_ms5837.pressure()
-if enable_p_hsc: p = p0+p_hsc.conv_pressure_to_mbar(p_hsc.read_pressure())
+if enable_p_inspi_hsc: p = p0+p_inspi_hsc.conv_pressure_to_mbar(p_inspi_hsc.read_pressure())
+if enable_p_expi_hsc: p_e = p0+p_expi_hsc.conv_pressure_to_mbar(p_expi_hsc.read_pressure())
 p_prev = p
 p_cycle_start = p
 p0 = p
 if enable_p0_ms5837: p0 = p0_ms5837.pressure() 
 temperature = 25
+temperature_e = 25
 if enable_p_ms5837: temperature = p_ms5837.temperature()
-if enable_p_hsc: temperature = p_hsc.read_temperature()
+if enable_p_inspi_hsc: temperature = p_inspi_hsc.read_temperature()
+if enable_p_expi_hsc: temperature_e = p_expi_hsc.read_temperature()
 temperature0 = temperature
 if enable_p0_ms5837: temperature0 = p0_ms5837.temperature()
 Ppeak_reached = False
@@ -393,16 +460,13 @@ inspi_duration_estim = inspi_duration
 expi_duration_estim = expi_duration
 cycle_duration_estim = cycle_duration
 
-pwm0_ns = pwm0_ns_max
-pwm1_ns = pwm1_ns_min
-
 t_last_not_all_valves_closed = 0
 t_all_valves_closed = 0
 
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;O2_air_ratio;flow_control (in L/min);mode;pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);p_e (in mbar);temperature_e (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;O2_air_ratio;flow_control (in L/min);mode;pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
 except:
     pass
 
@@ -467,16 +531,27 @@ while True:
         valve_expi_val = GPIO.HIGH
 
     # Actuators
-    pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
-    pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
-    pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
-    pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
-    os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
-    os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
     valve_air_val = min(100, max(0, valve_air_val))
     valve_O2_val = min(100, max(0, valve_O2_val))
-    valve_air_pwm.ChangeDutyCycle(valve_air_val) 
-    valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
+    if not enable_hard_pwm_air_O2_valves:
+        # Hardware PWM for balloon servos
+        pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
+        pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
+        pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
+        pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
+        if not disable_hard_pwm:
+            os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
+            os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
+        # Software PWM for air and O2 proportional valves
+        valve_air_pwm.ChangeDutyCycle(valve_air_val) 
+        valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
+    else:
+        # Hardware PWM for air and O2 proportional valves
+        pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
+        pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
+        if not disable_hard_pwm:
+            os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
+            os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
     GPIO.output(valve_inspi_pin, valve_inspi_val)
     GPIO.output(valve_expi_pin, valve_expi_val)
 
@@ -578,16 +653,31 @@ while True:
                 print('P sensor read failed!')
                 buz_pwm.ChangeDutyCycle(50)
                 exit(1)
-    elif enable_p_hsc:
+    elif enable_p_inspi_hsc:
         try:
-            p_diff_hsc, temp_tmp_hsc = p_hsc.read()
+            p_diff_inspi_hsc, temp_tmp_inspi_hsc = p_inspi_hsc.read()
         except:
-            print('HSC sensor read failed!')
+            print('HSC I sensor read failed!')
             time.sleep(0.1)
             try:
-                p_diff_hsc, temp_tmp_hsc = p_hsc.read()
+                p_diff_inspi_hsc, temp_tmp_inspi_hsc = p_inspi_hsc.read()
             except:
-                print('HSC sensor read failed!')
+                print('HSC I sensor read failed!')
+                time.sleep(0.1)
+                buz_pwm.ChangeDutyCycle(50)
+                exit(1)
+    else:
+        time.sleep(0.005)
+    if enable_p_expi_hsc:
+        try:
+            p_diff_expi_hsc, temp_tmp_expi_hsc = p_expi_hsc.read()
+        except:
+            print('HSC E sensor read failed!')
+            time.sleep(0.1)
+            try:
+                p_diff_expi_hsc, temp_tmp_expi_hsc = p_expi_hsc.read()
+            except:
+                print('HSC E sensor read failed!')
                 time.sleep(0.1)
                 buz_pwm.ChangeDutyCycle(50)
                 exit(1)
@@ -662,22 +752,22 @@ while True:
         pressure_air = flow_air_rsc.conv_pressure_to_mbar(pressure_air)
         pressure_air = pressure_air-pressure_offset_air
         rho_air = 1.292*(273.15/(273.15+temperature_air)) # In kg/m3
-        vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((A1/A2)**2-1)))
-        flow_air = A1*vel_air
+        vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((A1_air/A2_air)**2-1)))
+        flow_air = A1_air*vel_air
     if enable_expi_rsc: 
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temperature_expi)
         pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
         pressure_expi = pressure_expi-pressure_offset_expi
         rho_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
-        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((A1/A2)**2-1)))
-        flow_expi = A1*vel_expi
+        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((A1_expi/A2_expi)**2-1)))
+        flow_expi = A1_expi*vel_expi
     if enable_O2_rsc: 
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temperature_O2)
         pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
         pressure_O2 = pressure_O2-pressure_offset_O2
         rho_O2 = 1.292*(273.15/(273.15+temperature_O2)) # In kg/m3
-        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((A1/A2)**2-1)))
-        flow_O2 = A1*vel_O2
+        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((A1_O2/A2_O2)**2-1)))
+        flow_O2 = A1_O2*vel_O2
 
     # Filters
     # Offset...
@@ -712,22 +802,22 @@ while True:
         if (flow_control < flow_control_max):
             flow_mix = flow_filtered_air+flow_filtered_O2 # Should be controlled around flow_control...
             err_flow_mix = (flow_control-flow_mix)/flow_control
-            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_control_coef*dt*err_flow_mix)) # Min > 0 to not disable proportional valves control...
-            valve_O2_val_max =  min(1, max(100, valve_O2_val_max+valve_flow_control_coef*dt*err_flow_mix))
+            valve_air_val_max = max(1, min(100, valve_air_val_max+valve_flow_control_coef*dt*err_flow_mix)) # Min > 0 to not disable proportional valves control...
+            valve_O2_val_max =  max(1, min(100, valve_O2_val_max+valve_flow_control_coef*dt*err_flow_mix))
         else:
             valve_air_val_max = 100
             valve_O2_val_max = 100
         if (O2_air_ratio >= 0): # < 0 means no ratio control...
             flow_mix_ratio = flow_filtered_O2/flow_filtered_air # Should be controlled around O2_air_ratio...
             err_flow_mix_ratio = O2_air_ratio-flow_mix_ratio
-            valve_air_val_max = min(1, max(100, valve_air_val_max+valve_flow_mix_ratio_coef*dt*err_flow_mix_ratio)) # Min > 0 to not disable proportional valves control...
-            valve_O2_val_max =  min(1, max(100, valve_O2_val_max-valve_flow_mix_ratio_coef*dt*err_flow_mix_ratio))
+            valve_air_val_max = max(1, min(100, valve_air_val_max+valve_flow_mix_ratio_coef*dt*err_flow_mix_ratio)) # Min > 0 to not disable proportional valves control...
+            valve_O2_val_max =  max(1, min(100, valve_O2_val_max-valve_flow_mix_ratio_coef*dt*err_flow_mix_ratio))
 
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, temperature0, p, temperature, select, Ppeak, PEEP, respi_rate, inspi_ratio, O2_air_ratio, flow_control, mode, 
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, p_e, temperature_e, select, Ppeak, PEEP, respi_rate, inspi_ratio, O2_air_ratio, flow_control, mode, 
                                pwm0_ns, pwm1_ns, valve_air_val, valve_O2_val, valve_inspi_val, valve_expi_val, 
                                pressure_air, pressure_expi, pressure_O2, temperature_air, temperature_expi, temperature_O2, 
                                flow_air*60000.0, flow_expi*60000.0, flow_O2*60000.0, flow_filtered_air*60000.0, flow_filtered_expi*60000.0, flow_filtered_O2*60000.0, vol_air*1000.0, vol_expi*1000.0, vol_O2*1000.0))
@@ -746,9 +836,12 @@ while True:
     if enable_p_ms5837:
         p = p_ms5837.pressure()
         temperature = p_ms5837.temperature()
-    elif enable_p_hsc:
-        p = p0+p_diff_hsc
-        temperature = temp_tmp_hsc
+    elif enable_p_inspi_hsc:
+        p = p0+p_diff_inspi_hsc
+        temperature = temp_tmp_inspi_hsc
+    if enable_p_expi_hsc:
+        p_e = p0+p_diff_expi_hsc
+        temperature_e = temp_tmp_expi_hsc
     if (t-t_cycle_start > cycle_duration_estim):
         t_cycle_start = t
         p_cycle_start = p
