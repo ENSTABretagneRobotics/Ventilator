@@ -24,6 +24,10 @@ delay = 0.025
 t_plot = [0]
 p_cmh2o_plot = [0]
 p_e_cmh2o_plot = [0]
+Ppeak_plot = [0]
+PEEP_plot = [0]
+flow_control_air_plot = [0]
+flow_control_O2_plot = [0]
 valve_air_plot = [0]
 valve_O2_plot = [0]
 valve_inspi_plot = [0]
@@ -60,19 +64,23 @@ plt2.getAxis('left').tickFont = font
 plt2.getAxis('right').tickFont = font
 plt.getAxis('bottom').tickFont = font
 plt2.getAxis('bottom').tickFont = font
-c1 = plt.plot(t_plot, p_cmh2o_plot, pen = '#FFFF00', name = 'Inspi. pres.')
-c2 = plt.plot(t_plot, p_e_cmh2o_plot, pen = '#FFA500', name = 'Expi. pres.')
-c3 = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
-c4 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
-c5 = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
-c6 = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
-c7 = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
-c8 = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
-c9 = plt2.plot(t_plot, flow_O2_plot, pen = '#003030')
-c10 = plt2.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
-c11 = plt2.plot(t_plot, flow_filtered_expi_plot, pen = '#FF0000', name = 'Expi. flow')
-c12 = plt2.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
-c13 = plt2.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
+c_p_cmh2o = plt.plot(t_plot, p_cmh2o_plot, pen = '#FFFF00', name = 'Inspi. pres.')
+c_p_e_cmh2o = plt.plot(t_plot, p_e_cmh2o_plot, pen = '#FFA500', name = 'Expi. pres.')
+c_Ppeak = plt.plot(t_plot, Ppeak_plot, pen = '#FFFFFF')
+c_PEEP = plt.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
+c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
+c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
+c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
+c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
+c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
+c_valve_expi = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
+c_flow_air = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
+c_flow_expi = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
+c_flow_O2 = plt2.plot(t_plot, flow_O2_plot, pen = '#003030')
+c_flow_filtered_air = plt2.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
+c_flow_filtered_expi = plt2.plot(t_plot, flow_filtered_expi_plot, pen = '#FF0000', name = 'Expi. flow')
+c_flow_filtered_O2 = plt2.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
+c_vol_l = plt2.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
 for item in plt.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
@@ -157,6 +165,10 @@ while True:
                             t_plot = [0]
                             p_cmh2o_plot = [0]
                             p_e_cmh2o_plot = [0]
+                            Ppeak_plot = [0]
+                            PEEP_plot = [0]
+                            flow_control_air_plot = [0]
+                            flow_control_O2_plot = [0]
                             valve_air_plot = [0]
                             valve_O2_plot = [0]
                             valve_inspi_plot = [0]
@@ -199,6 +211,10 @@ while True:
                         t_plot.append(dt)
                         p_cmh2o_plot.append(p_cmh2o)
                         p_e_cmh2o_plot.append(p_e_cmh2o)
+                        Ppeak_plot.append(Ppeak)
+                        PEEP_plot.append(PEEP)
+                        flow_control_air_plot.append(flow_control_air)
+                        flow_control_O2_plot.append(flow_control_O2)
                         valve_air_plot.append(valve_air/10.0)
                         valve_O2_plot.append(valve_O2/10.0)
                         valve_inspi_plot.append(10.0*valve_inspi)
@@ -214,6 +230,10 @@ while True:
                             t_plot.pop(0)
                             p_cmh2o_plot.pop(0)
                             p_e_cmh2o_plot.pop(0)
+                            Ppeak_plot.pop(0)
+                            PEEP_plot.pop(0)
+                            flow_control_air_plot.pop(0)
+                            flow_control_O2_plot.pop(0)
                             valve_air_plot.pop(0)
                             valve_O2_plot.pop(0)
                             valve_inspi_plot.pop(0)
@@ -234,19 +254,23 @@ while True:
     except EOFError: 
         file.seek(0, os.SEEK_END) # Might be necessary on recent versions of Linux, see https://lists.gnu.org/archive/html/info-gnu/2018-08/msg00000.html...
    
-    c1.setData(t_plot, p_cmh2o_plot)
-    c2.setData(t_plot, p_e_cmh2o_plot)
-    c3.setData(t_plot, valve_air_plot)
-    c4.setData(t_plot, valve_O2_plot)
-    c5.setData(t_plot, valve_inspi_plot)
-    c6.setData(t_plot, valve_expi_plot)
-    c7.setData(t_plot, flow_air_plot)
-    c8.setData(t_plot, flow_expi_plot)
-    c9.setData(t_plot, flow_O2_plot)
-    c10.setData(t_plot, flow_filtered_air_plot)
-    c11.setData(t_plot, flow_filtered_expi_plot)
-    c12.setData(t_plot, flow_filtered_O2_plot)
-    c13.setData(t_plot, vol_l_plot)
+    c_p_cmh2o.setData(t_plot, p_cmh2o_plot)
+    c_p_e_cmh2o.setData(t_plot, p_e_cmh2o_plot)
+    c_Ppeak.setData(t_plot, Ppeak_plot)
+    c_PEEP.setData(t_plot, PEEP_plot)
+    c_flow_control_air.setData(t_plot, flow_control_air_plot)
+    c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
+    c_valve_air.setData(t_plot, valve_air_plot)
+    c_valve_O2.setData(t_plot, valve_O2_plot)
+    c_valve_inspi.setData(t_plot, valve_inspi_plot)
+    c_valve_expi.setData(t_plot, valve_expi_plot)
+    c_flow_air.setData(t_plot, flow_air_plot)
+    c_flow_expi.setData(t_plot, flow_expi_plot)
+    c_flow_O2.setData(t_plot, flow_O2_plot)
+    c_flow_filtered_air.setData(t_plot, flow_filtered_air_plot)
+    c_flow_filtered_expi.setData(t_plot, flow_filtered_expi_plot)
+    c_flow_filtered_O2.setData(t_plot, flow_filtered_O2_plot)
+    c_vol_l.setData(t_plot, vol_l_plot)
 
     pg.QtGui.QApplication.processEvents()
 

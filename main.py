@@ -39,7 +39,7 @@ from timeit import default_timer as timer
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
 # Then reboot and
-#sudo -E python main.py
+#sudo -E python main.py & python gui.py
 
 # Parameters
 ###############################################################################
@@ -77,8 +77,11 @@ flow_control_O2_max = 80
 mode_step = 1
 mode_min = 0
 mode_max = 2
+enable_buzzer = True
+enable_pigpio_pwm = False
 disable_hard_pwm = False
 enable_hard_pwm_air_O2_valves = True
+enable_pwm_expi_valve = False
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
 enable_p_inspi_hsc = False
@@ -106,12 +109,15 @@ delay_rsc = 0.010
 coef_filter_rsc = 0.95
 nb_count_auto_zero_filter_rsc = 0 # 100
 nb_count_offset_filter_rsc = 0 # 100
+valves_pwm_freq = 600 # In Hz
 valves_delay = 0.2 # In s
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.9
 flow_thresh = 15 # In L/min
-valve_flow_control_air_coef = 15.0
-valve_flow_control_O2_coef = 15.0
+valve_flow_control_air_coef = 25.0
+valve_flow_control_O2_coef = 25.0
+valve_pressure_excess_control_air_coef = 50.0
+valve_pressure_excess_control_O2_coef = 50.0
 debug = True
 ###############################################################################
 
@@ -119,10 +125,20 @@ GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
 # Software PWM init for buzzer
-buz_pin = 26
-GPIO.setup(buz_pin, GPIO.OUT)
-buz_pwm = GPIO.PWM(buz_pin, 4000)
-buz_pwm.start(50) # Startup beep...
+if enable_buzzer:
+    buz_pin = 26
+    GPIO.setup(buz_pin, GPIO.OUT)
+    buz_pwm = GPIO.PWM(buz_pin, 4000)
+    buz_pwm.start(50) # Startup beep...
+
+if enable_pigpio_pwm: 
+    os.system('pigpiod')
+    time.sleep(0.2)
+    import pigpio
+    pi = pigpio.pi()
+    if not pi.connected:
+       print('pigpio could not be initialized')
+       exit(1)
 
 # Other PWM init
 if (flow_control_air < flow_control_air_max): valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
@@ -156,15 +172,15 @@ if not enable_hard_pwm_air_O2_valves:
     # Software PWM for air and O2 proportional valves
     valve_air_pin = 2
     GPIO.setup(valve_air_pin, GPIO.OUT)
-    valve_air_pwm = GPIO.PWM(valve_air_pin, 600)
+    valve_air_pwm = GPIO.PWM(valve_air_pin, valves_pwm_freq)
     valve_air_pwm.start(valve_air_val)
     valve_O2_pin = 3
     GPIO.setup(valve_O2_pin, GPIO.OUT)
-    valve_O2_pwm = GPIO.PWM(valve_O2_pin, 600)
+    valve_O2_pwm = GPIO.PWM(valve_O2_pin, valves_pwm_freq)
     valve_O2_pwm.start(valve_O2_val)
 else:
     # Hardware PWM for air and O2 proportional valves
-    pwm_period = 2272727
+    pwm_period = max(1500000, min(0x7FFFFFFF, int(1000000000/valves_pwm_freq)))
     pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
     pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/period'
     if not disable_hard_pwm:
@@ -184,8 +200,21 @@ valve_inspi_pin = 6
 valve_inspi_val = GPIO.LOW
 GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = valve_inspi_val)
 valve_expi_pin = 0
-valve_expi_val = GPIO.LOW
-GPIO.setup(valve_expi_pin, GPIO.OUT, initial = valve_expi_val)
+if not enable_pwm_expi_valve:
+    valve_expi_val = GPIO.LOW
+    GPIO.setup(valve_expi_pin, GPIO.OUT, initial = valve_expi_val)
+elif enable_pigpio_pwm:
+    valve_expi_val = 0
+    valve_expi_val = min(100, max(0, valve_expi_val))
+    pi.set_mode(valve_expi_pin, pigpio.OUTPUT)
+    pi.set_PWM_frequency(valve_expi_pin, valves_pwm_freq)
+    pi.set_PWM_dutycycle(valve_expi_pin, 255*valve_expi_val/100) 
+else:
+    valve_expi_val = 0
+    valve_expi_val = min(100, max(0, valve_expi_val))
+    GPIO.setup(valve_expi_pin, GPIO.OUT)
+    valve_expi_pwm = GPIO.PWM(valve_expi_pin, valves_pwm_freq)
+    valve_expi_pwm.start(valve_expi_val)
 
 # Digital inputs (buttons)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
@@ -473,7 +502,7 @@ except:
     pass
 
 # Stop the startup beep
-buz_pwm.ChangeDutyCycle(0)
+if enable_buzzer: buz_pwm.ChangeDutyCycle(0)
 
 # Divisions by 0, NAN, INF...?
 
@@ -522,14 +551,13 @@ while True:
     if (mode == 2):
         # Override to only make O2:Air mix...
         # Balloon not handled...
-        if (p-p0 > Ppeak):
+        if (p-p0 > Ppeak*1.25): # Allow 25 % more since a control should be made later to limit the flow to stay below Ppeak...
             valve_air_val = 0
             valve_O2_val = 0
-            valve_inspi_val = GPIO.LOW
         else:
             valve_air_val = valve_air_val_max
             valve_O2_val = valve_O2_val_max
-            valve_inspi_val = GPIO.HIGH
+        valve_inspi_val = GPIO.HIGH
         valve_expi_val = GPIO.HIGH
 
     # Actuators
@@ -555,7 +583,14 @@ while True:
             os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
             os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
     GPIO.output(valve_inspi_pin, valve_inspi_val)
-    GPIO.output(valve_expi_pin, valve_expi_val)
+    if not enable_pwm_expi_valve:
+        GPIO.output(valve_expi_pin, valve_expi_val)
+    elif enable_pigpio_pwm:
+        valve_expi_val = min(100, max(0, valve_expi_val))
+        pi.set_PWM_dutycycle(valve_expi_pin, 255*valve_expi_val/100)
+    else:
+        valve_expi_val = min(100, max(0, valve_expi_val))
+        valve_expi_pwm.ChangeDutyCycle(valve_expi_val)
 
     # Buttons to set parameters
     select_button_val = GPIO.input(select_button_pin)
@@ -646,14 +681,14 @@ while True:
                 time.sleep(0.1)
                 if not p_ms5837.read(ms5837.OSR_256):
                     print('P sensor read failed!')
-                    buz_pwm.ChangeDutyCycle(50)
+                    if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                     exit(1)
         except:
             print('P sensor read failed!')
             time.sleep(0.1)
             if not p_ms5837.read(ms5837.OSR_256):
                 print('P sensor read failed!')
-                buz_pwm.ChangeDutyCycle(50)
+                if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                 exit(1)
     elif enable_p_inspi_hsc:
         try:
@@ -666,7 +701,7 @@ while True:
             except:
                 print('HSC I sensor read failed!')
                 time.sleep(0.1)
-                buz_pwm.ChangeDutyCycle(50)
+                if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                 exit(1)
     else:
         time.sleep(0.005)
@@ -681,7 +716,7 @@ while True:
             except:
                 print('HSC E sensor read failed!')
                 time.sleep(0.1)
-                buz_pwm.ChangeDutyCycle(50)
+                if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                 exit(1)
     else:
         time.sleep(0.005)
@@ -801,19 +836,33 @@ while True:
 
     # Proportional valves control
     if (valve_air_val > 0):
-        if (flow_control_air < 0):
+        if (flow_control_air <= 0):
             valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
         elif (flow_control_air < flow_control_air_max):
-            err_flow_air = (flow_control_air-flow_filtered_air*60000.0)/flow_control_air
-            valve_air_val_max =  max(1, min(100, valve_air_val_max+valve_flow_control_air_coef*dt*err_flow_air)) # Min > 0 to not always disable proportional valves control...
+            if (Ppeak <= 0):
+                valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
+            else:
+                pressure_excess_ratio = ((p-p0)-Ppeak)/Ppeak
+                if (pressure_excess_ratio > 0): # Control to limit the flow to stay below Ppeak...
+                    valve_air_val_max =  max(1, min(100, valve_air_val_max-valve_pressure_excess_control_air_coef*(flow_control_air/flow_control_air_max)*dt*pressure_excess_ratio)) # Min > 0 to not always disable proportional valves control...
+                else:
+                    err_flow_air = (flow_control_air-flow_filtered_air*60000.0)/flow_control_air
+                    valve_air_val_max =  max(1, min(100, valve_air_val_max+valve_flow_control_air_coef*dt*err_flow_air)) # Min > 0 to not always disable proportional valves control...
         else:
             valve_air_val_max = 100
     if (valve_O2_val > 0):
-        if (flow_control_O2 < 0):
+        if (flow_control_O2 <= 0):
             valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
         elif (flow_control_O2 < flow_control_O2_max):
-            err_flow_O2 = (flow_control_O2-flow_filtered_O2*60000.0)/flow_control_O2
-            valve_O2_val_max =  max(1, min(100, valve_O2_val_max+valve_flow_control_O2_coef*dt*err_flow_O2)) # Min > 0 to not always disable proportional valves control...
+            if (Ppeak <= 0):
+                valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
+            else:
+                pressure_excess_ratio = ((p-p0)-Ppeak)/Ppeak
+                if (pressure_excess_ratio > 0): # Control to limit the flow to stay below Ppeak...
+                    valve_O2_val_max =  max(1, min(100, valve_O2_val_max-valve_pressure_excess_control_O2_coef*(flow_control_O2/flow_control_O2_max)*dt*pressure_excess_ratio)) # Min > 0 to not always disable proportional valves control...
+                else:
+                    err_flow_O2 = (flow_control_O2-flow_filtered_O2*60000.0)/flow_control_O2
+                    valve_O2_val_max =  max(1, min(100, valve_O2_val_max+valve_flow_control_O2_coef*dt*err_flow_O2)) # Min > 0 to not always disable proportional valves control...
         else:
             valve_O2_val_max = 100
 
@@ -827,7 +876,7 @@ while True:
                                flow_air*60000.0, flow_expi*60000.0, flow_O2*60000.0, flow_filtered_air*60000.0, flow_filtered_expi*60000.0, flow_filtered_O2*60000.0, vol_air*1000.0, vol_expi*1000.0, vol_O2*1000.0))
         file.flush()
     except:
-        buz_pwm.ChangeDutyCycle(50)
+        if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
 
     if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP A: %0.5f mbar \tP off. A: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
         t-t0, dt, p0, temperature0, p, temperature, pressure_air, pressure_offset_air, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2) 
@@ -856,14 +905,14 @@ while True:
                     time.sleep(0.1)
                     if not p0_ms5837.read(ms5837.OSR_256):
                         print('P0 sensor read failed!')
-                        buz_pwm.ChangeDutyCycle(50)
+                        if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                         exit(1)
             except:
                 print('P0 sensor read failed!')
                 time.sleep(0.1)
                 if not p0_ms5837.read(ms5837.OSR_256):
                     print('P0 sensor read failed!')
-                    buz_pwm.ChangeDutyCycle(50)
+                    if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                     exit(1)
             p0 = p0_ms5837.pressure()
             temperature0 = p0_ms5837.temperature()
