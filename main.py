@@ -87,14 +87,14 @@ enable_air_rsc = True
 enable_expi_rsc = False
 enable_O2_rsc = True
 R1_air = 0.019100/2.0
-R2_air = 0.011651/2.0
-#R2_air = 0.006500/2.0
+#R2_air = 0.011651/2.0
+R2_air = 0.006500/2.0
 R1_expi = 0.019100/2.0
 R2_expi = 0.011651/2.0
 #R2_expi = 0.006500/2.0
 R1_O2 = 0.019100/2.0
-R2_O2 = 0.011651/2.0
-#R2_O2 = 0.006500/2.0
+#R2_O2 = 0.011651/2.0
+R2_O2 = 0.006500/2.0
 A1_air = math.pi*R1_air**2
 A2_air = math.pi*R2_air**2
 A1_expi = math.pi*R1_expi**2
@@ -110,8 +110,8 @@ valves_delay = 0.2 # In s
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.9
 flow_thresh = 15 # In L/min
-valve_flow_control_coef = 5.0
-valve_flow_mix_ratio_coef = 5.0
+valve_flow_control_coef = 15.0
+valve_flow_mix_ratio_coef = 15.0
 debug = True
 ###############################################################################
 
@@ -138,7 +138,7 @@ if not enable_hard_pwm_air_O2_valves:
     # Hardware PWM for balloon servos
     pwm_period = 20000000
     pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
-    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
+    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/period'
     if not disable_hard_pwm:
         os.system(pwm0_period_cmd.format(math.trunc(pwm_period)))
         os.system(pwm1_period_cmd.format(math.trunc(pwm_period)))
@@ -164,7 +164,7 @@ else:
     # Hardware PWM for air and O2 proportional valves
     pwm_period = 1500000
     pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
-    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
+    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/period'
     if not disable_hard_pwm:
         os.system(pwm0_period_cmd.format(math.trunc(pwm_period)))
         os.system(pwm1_period_cmd.format(math.trunc(pwm_period)))
@@ -284,11 +284,11 @@ pressure_air, temperature_air, flow_air, flow_filtered_air, vol_air, pressure_of
 pressure_expi, temperature_expi, flow_expi, flow_filtered_expi, vol_expi, pressure_offset_expi, flow_offset_expi = 0, 25, 0, 0, 0, 0, 0
 pressure_O2, temperature_O2, flow_O2, flow_filtered_O2, vol_O2, pressure_offset_O2, flow_offset_O2 = 0, 25, 0, 0, 0, 0, 0
 if enable_air_rsc: 
-    flow_air_rsc = rsc.HRSC(spi_bus = 3)
+    flow_air_rsc = rsc.HRSC(spi_bus = 4)
     flow_air_rsc.sensor_info()
     flow_air_rsc.reset()
 if enable_expi_rsc: 
-    flow_expi_rsc = rsc.HRSC(spi_bus = 4)
+    flow_expi_rsc = rsc.HRSC(spi_bus = 3)
     flow_expi_rsc.sensor_info()
     flow_expi_rsc.reset()
 if enable_O2_rsc: 
@@ -801,7 +801,7 @@ while True:
     if ((valve_air_val > 0) and (valve_O2_val > 0)):
         if (flow_control < flow_control_max):
             flow_mix = flow_filtered_air+flow_filtered_O2 # Should be controlled around flow_control...
-            err_flow_mix = (flow_control-flow_mix)/flow_control
+            err_flow_mix = (flow_control-flow_mix*60000)/flow_control
             valve_air_val_max = max(1, min(100, valve_air_val_max+valve_flow_control_coef*dt*err_flow_mix)) # Min > 0 to not disable proportional valves control...
             valve_O2_val_max =  max(1, min(100, valve_O2_val_max+valve_flow_control_coef*dt*err_flow_mix))
         else:
