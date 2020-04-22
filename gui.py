@@ -124,8 +124,8 @@ while True:
                         PEEP = float(cols[10])
                         respi_rate = float(cols[11])
                         inspi_ratio = float(cols[12])
-                        O2_air_ratio = float(cols[13])
-                        flow_control = float(cols[14])
+                        flow_control_air = float(cols[13])
+                        flow_control_O2 = float(cols[14])
                         mode = float(cols[15])
                         valve_air = float(cols[18])
                         valve_O2 = float(cols[19])
@@ -181,24 +181,17 @@ while True:
                             wintitle = '[I:E: {:.2f}]'
                             win.setWindowTitle(wintitle.format(inspi_ratio))
                         elif (select == 4): 
-                            if (O2_air_ratio < 0):
-                                win.setWindowTitle('[O:A: NA]')
-                            else:
-                                wintitle = '[O:A: {:.2f}]'
-                                win.setWindowTitle(wintitle.format(O2_air_ratio))
+                            wintitle = '[Flow A: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control_air)))
                         elif (select == 5): 
-                            wintitle = '[Flow: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control)))
+                            wintitle = '[Flow O: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control_O2)))
                         elif (select == 6): 
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
                         else: 
-                            if (O2_air_ratio < 0):
-                                wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, O:A: NA, Flow: {:d}, Mode: {:d}'
-                                win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_control), int(mode)))
-                            else:
-                                wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, O:A: {:.2f}, Flow: {:d}, Mode: {:d}'
-                                win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, O2_air_ratio, int(flow_control), int(mode)))
+                            wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Mode: {:d}'
+                            win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(mode)))
                         plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
                         plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
