@@ -1,3 +1,4 @@
+from __future__ import division
 try:
     import smbus
 except:
@@ -40,7 +41,7 @@ class HHSC(object):
         # From https://www.raspberrypi.org/forums/viewtopic.php?t=33334
         ans = self.bus.read_word_data(self._addr, 0x03) # Send I2C address and read bit, return two 8 bit bytes
         ans = (((ans & 0x00FF) << 8) + ((ans & 0xFF00) >> 8)) # Byte swap them
-        ans = ans*200.0/2047/32-50
+        ans = ans*200.0/2047.0/32.0-50
         return ans
 
     # In sensor unit
@@ -69,5 +70,5 @@ class HHSC(object):
         pres = (pres-self.output_min)*(self.max_pressure-self.min_pressure)/(self.output_max-self.output_min)+self.min_pressure
         pres = conv_pressure_to_mbar(self, pres)
         temp = (ans[2] << 8) + ans[3]
-        temp = temp*200.0/2047/32-50
+        temp = temp*200.0/2047.0/32.0-50
         return pres, temp

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from __future__ import division
 import RPi.GPIO as GPIO
 import ms5837 # From https://github.com/bluerobotics/ms5837-python
 import rsc # From https://github.com/tin-/ascp
@@ -81,7 +82,7 @@ enable_buzzer = True
 enable_pigpio_pwm = False
 disable_hard_pwm = False
 enable_hard_pwm_air_O2_valves = True
-enable_pwm_expi_valve = False
+enable_pwm_expi_valve = True
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
 enable_p_inspi_hsc = False
@@ -110,14 +111,15 @@ coef_filter_rsc = 0.95
 nb_count_auto_zero_filter_rsc = 0 # 100
 nb_count_offset_filter_rsc = 0 # 100
 valves_pwm_freq = 600 # In Hz
+valves_max_init = 50
 valves_delay = 0.2 # In s
 coef_offset_filter_flow = 0.99
-coef_filter_flow = 0.9
+coef_filter_flow = 0.7
 flow_thresh = 15 # In L/min
 valve_flow_control_air_coef = 25.0
 valve_flow_control_O2_coef = 25.0
-valve_pressure_excess_control_air_coef = 50.0
-valve_pressure_excess_control_O2_coef = 50.0
+valve_pressure_excess_control_air_coef = 100.0
+valve_pressure_excess_control_O2_coef = 100.0
 debug = True
 ###############################################################################
 
@@ -141,11 +143,11 @@ if enable_pigpio_pwm:
        exit(1)
 
 # Other PWM init
-if (flow_control_air < flow_control_air_max): valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
+if (flow_control_air < flow_control_air_max): valve_air_val_max = valves_max_init # Min > 0 to not always disable proportional valves control...
 else: valve_air_val_max = 100
 valve_air_val = 0
 valve_air_val = min(100, max(0, valve_air_val))
-if (flow_control_O2 < flow_control_O2_max): valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
+if (flow_control_O2 < flow_control_O2_max): valve_O2_val_max = valves_max_init # Min > 0 to not always disable proportional valves control...
 else: valve_O2_val_max = 100
 valve_O2_val = 0
 valve_O2_val = min(100, max(0, valve_O2_val))
@@ -553,7 +555,9 @@ while True:
         # Balloon not handled...
         if (p-p0 > Ppeak*1.25): # Allow 25 % more since a control should be made later to limit the flow to stay below Ppeak...
             valve_air_val = 0
+            valve_air_val_max = valves_max_init
             valve_O2_val = 0
+            valve_O2_val_max = valves_max_init
         else:
             valve_air_val = valve_air_val_max
             valve_O2_val = valve_O2_val_max
@@ -789,21 +793,21 @@ while True:
         pressure_air = flow_air_rsc.conv_pressure_to_mbar(pressure_air)
         pressure_air = pressure_air-pressure_offset_air
         rho_air = 1.292*(273.15/(273.15+temperature_air)) # In kg/m3
-        vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((A1_air/A2_air)**2-1)))
+        vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((A1_air/float(A2_air))**2-1)))
         flow_air = A1_air*vel_air
     if enable_expi_rsc: 
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temperature_expi)
         pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
         pressure_expi = pressure_expi-pressure_offset_expi
         rho_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
-        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((A1_expi/A2_expi)**2-1)))
+        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((A1_expi/float(A2_expi))**2-1)))
         flow_expi = A1_expi*vel_expi
     if enable_O2_rsc: 
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temperature_O2)
         pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
         pressure_O2 = pressure_O2-pressure_offset_O2
         rho_O2 = 1.292*(273.15/(273.15+temperature_O2)) # In kg/m3
-        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((A1_O2/A2_O2)**2-1)))
+        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((A1_O2/float(A2_O2))**2-1)))
         flow_O2 = A1_O2*vel_O2
 
     # Filters
@@ -835,36 +839,36 @@ while True:
         vol_O2 = 0
 
     # Proportional valves control
-    if (valve_air_val > 0):
-        if (flow_control_air <= 0):
+    if (flow_control_air <= 0):
+        valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
+    elif (flow_control_air < flow_control_air_max):
+        if (Ppeak <= 0):
             valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
-        elif (flow_control_air < flow_control_air_max):
-            if (Ppeak <= 0):
-                valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
+        else:
+            pressure_excess_ratio = ((p-p0)-Ppeak)/float(Ppeak)
+            if (pressure_excess_ratio > 0): # Control to limit the flow to stay below Ppeak
+                valve_air_val_max =  max(1, min(100, valve_air_val_max-valve_pressure_excess_control_air_coef*(flow_control_air/float(flow_control_air_max))*dt*pressure_excess_ratio)) # Min > 0 to not always disable proportional valves control...
             else:
-                pressure_excess_ratio = ((p-p0)-Ppeak)/Ppeak
-                if (pressure_excess_ratio > 0): # Control to limit the flow to stay below Ppeak...
-                    valve_air_val_max =  max(1, min(100, valve_air_val_max-valve_pressure_excess_control_air_coef*(flow_control_air/flow_control_air_max)*dt*pressure_excess_ratio)) # Min > 0 to not always disable proportional valves control...
-                else:
-                    err_flow_air = (flow_control_air-flow_filtered_air*60000.0)/flow_control_air
+                if (valve_air_val > 0): # Proportional valve control
+                    err_flow_air = (flow_control_air-flow_filtered_air*60000.0)/float(flow_control_air)
                     valve_air_val_max =  max(1, min(100, valve_air_val_max+valve_flow_control_air_coef*dt*err_flow_air)) # Min > 0 to not always disable proportional valves control...
-        else:
-            valve_air_val_max = 100
-    if (valve_O2_val > 0):
-        if (flow_control_O2 <= 0):
+    else:
+        valve_air_val_max = 100
+    if (flow_control_O2 <= 0):
+        valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
+    elif (flow_control_O2 < flow_control_O2_max):
+        if (Ppeak <= 0):
             valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
-        elif (flow_control_O2 < flow_control_O2_max):
-            if (Ppeak <= 0):
-                valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
-            else:
-                pressure_excess_ratio = ((p-p0)-Ppeak)/Ppeak
-                if (pressure_excess_ratio > 0): # Control to limit the flow to stay below Ppeak...
-                    valve_O2_val_max =  max(1, min(100, valve_O2_val_max-valve_pressure_excess_control_O2_coef*(flow_control_O2/flow_control_O2_max)*dt*pressure_excess_ratio)) # Min > 0 to not always disable proportional valves control...
-                else:
-                    err_flow_O2 = (flow_control_O2-flow_filtered_O2*60000.0)/flow_control_O2
-                    valve_O2_val_max =  max(1, min(100, valve_O2_val_max+valve_flow_control_O2_coef*dt*err_flow_O2)) # Min > 0 to not always disable proportional valves control...
         else:
-            valve_O2_val_max = 100
+            pressure_excess_ratio = ((p-p0)-Ppeak)/float(Ppeak)
+            if (pressure_excess_ratio > 0): # Control to limit the flow to stay below Ppeak
+                valve_O2_val_max =  max(1, min(100, valve_O2_val_max-valve_pressure_excess_control_O2_coef*(flow_control_O2/float(flow_control_O2_max))*dt*pressure_excess_ratio)) # Min > 0 to not always disable proportional valves control...
+            else:
+                if (valve_O2_val > 0): # Proportional valve control
+                    err_flow_O2 = (flow_control_O2-flow_filtered_O2*60000.0)/float(flow_control_O2)
+                    valve_O2_val_max =  max(1, min(100, valve_O2_val_max+valve_flow_control_O2_coef*dt*err_flow_O2)) # Min > 0 to not always disable proportional valves control...
+    else:
+        valve_O2_val_max = 100
 
     # Log file
     # File errors are not critical...
