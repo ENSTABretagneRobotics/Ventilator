@@ -218,7 +218,7 @@ while True:
                         valve_air_plot.append(valve_air/10.0)
                         valve_O2_plot.append(valve_O2/10.0)
                         valve_inspi_plot.append(10.0*valve_inspi)
-                        valve_expi_plot.append(10.0*valve_expi)
+                        valve_expi_plot.append(valve_expi/10.0)
                         flow_air_plot.append(flow_air)
                         flow_expi_plot.append(flow_expi)
                         flow_O2_plot.append(flow_O2)

@@ -78,11 +78,9 @@ flow_control_O2_max = 150
 mode_step = 1
 mode_min = 0
 mode_max = 2
+enable_pigpio = True
 enable_buzzer = True
-enable_pigpio_pwm = True
 disable_hard_pwm = False
-enable_hard_pwm_air_O2_valves = True
-enable_pwm_expi_valve = True
 enable_p_ms5837 = True
 enable_p0_ms5837 = True
 enable_p_inspi_hsc = False
@@ -94,8 +92,8 @@ R1_air = 0.019100/2.0
 #R2_air = 0.011651/2.0
 R2_air = 0.006500/2.0
 R1_expi = 0.019100/2.0
-R2_expi = 0.011651/2.0
-#R2_expi = 0.006500/2.0
+#R2_expi = 0.011651/2.0
+R2_expi = 0.006500/2.0
 R1_O2 = 0.019100/2.0
 #R2_O2 = 0.011651/2.0
 R2_O2 = 0.006500/2.0
@@ -117,7 +115,9 @@ coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.7
 flow_thresh = 15 # In L/min
 flow_PEEP_control_air = 10 # In L/min
+flow_PEEP_control_O2 = 10 # In L/min
 valve_flow_PEEP_control_air_coef = 25.0
+valve_flow_PEEP_control_O2_coef = 25.0
 valve_pressure_PEEP_control_expi_coef = 25.0
 valve_flow_control_air_coef = 25.0
 valve_flow_control_O2_coef = 25.0
@@ -136,7 +136,7 @@ if enable_buzzer:
     buz_pwm = GPIO.PWM(buz_pin, 4000)
     buz_pwm.start(50) # Startup beep...
 
-if enable_pigpio_pwm: 
+if enable_pigpio: 
     os.system('pigpiod -x 0x0FFFFFFF') # To be able to use GPIO 0 and 1 also...
     time.sleep(0.2)
     import pigpio
@@ -146,45 +146,28 @@ if enable_pigpio_pwm:
        exit(1)
 
 # Other PWM init
+valve_air_pin = 12
 if (flow_control_air < flow_control_air_max): valve_air_val_max = valves_init # Min > 0 to not always disable proportional valves control...
 else: valve_air_val_max = 100
 valve_air_val = 0
 valve_air_val = min(100, max(0, valve_air_val))
+valve_O2_pin = 13
 if (flow_control_O2 < flow_control_O2_max): valve_O2_val_max = valves_init # Min > 0 to not always disable proportional valves control...
 else: valve_O2_val_max = 100
 valve_O2_val = 0
 valve_O2_val = min(100, max(0, valve_O2_val))
-if not disable_hard_pwm:
-    os.system('echo 0 > /sys/class/pwm/pwmchip0/export')
-    os.system('echo 1 > /sys/class/pwm/pwmchip0/export')
-if not enable_hard_pwm_air_O2_valves:
-    # Hardware PWM for balloon servos
-    pwm_period = 20000000
-    pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
-    pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/period'
-    if not disable_hard_pwm:
-        os.system(pwm0_period_cmd.format(math.trunc(pwm_period)))
-        os.system(pwm1_period_cmd.format(math.trunc(pwm_period)))
-    pwm0_ns = pwm0_ns_max
-    pwm1_ns = pwm1_ns_min
-    pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
-    pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
-    pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
-    pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
-    if not disable_hard_pwm:
-        os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
-        os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
-    # Software PWM for air and O2 proportional valves
-    valve_air_pin = 2
-    GPIO.setup(valve_air_pin, GPIO.OUT)
-    valve_air_pwm = GPIO.PWM(valve_air_pin, valves_pwm_freq)
-    valve_air_pwm.start(valve_air_val)
-    valve_O2_pin = 3
-    GPIO.setup(valve_O2_pin, GPIO.OUT)
-    valve_O2_pwm = GPIO.PWM(valve_O2_pin, valves_pwm_freq)
-    valve_O2_pwm.start(valve_O2_val)
+if enable_pigpio:
+    pi.set_mode(valve_air_pin, pigpio.OUTPUT)
+    pi.set_PWM_frequency(valve_air_pin, valves_pwm_freq)
+    pi.set_PWM_dutycycle(valve_air_pin, 255*valve_air_val/100)
+    pi.set_mode(valve_O2_pin, pigpio.OUTPUT)
+    pi.set_PWM_frequency(valve_O2_pin, valves_pwm_freq)
+    pi.set_PWM_dutycycle(valve_O2_pin, 255*valve_O2_val/100)
 else:
     # Hardware PWM for air and O2 proportional valves
+    if not disable_hard_pwm:
+        os.system('echo 0 > /sys/class/pwm/pwmchip0/export')
+        os.system('echo 1 > /sys/class/pwm/pwmchip0/export')
     pwm_period = max(1500000, min(0x7FFFFFFF, int(1000000000/valves_pwm_freq)))
     pwm0_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/period'
     pwm1_period_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/period'
@@ -196,9 +179,8 @@ else:
     if not disable_hard_pwm:
         os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
         os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
-if not disable_hard_pwm:
-    os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
-    os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
+        os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable')
+        os.system('echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable')
 
 # Digital outputs (valves)
 valve_inspi_pin = 6
@@ -206,16 +188,12 @@ valve_inspi_val = GPIO.LOW
 GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = valve_inspi_val)
 valve_expi_pin = 0
 valve_expi_val = 0
-if not enable_pwm_expi_valve:
-    if (valve_expi_val <= 0): GPIO.setup(valve_expi_pin, GPIO.OUT, initial =  GPIO.LOW)
-    else: GPIO.setup(valve_expi_pin, GPIO.OUT, initial =  GPIO.HIGH)
-elif enable_pigpio_pwm:
-    valve_expi_val = min(100, max(0, valve_expi_val))
+valve_expi_val = min(100, max(0, valve_expi_val))
+if enable_pigpio:
     pi.set_mode(valve_expi_pin, pigpio.OUTPUT)
     pi.set_PWM_frequency(valve_expi_pin, valves_pwm_freq)
     pi.set_PWM_dutycycle(valve_expi_pin, 255*valve_expi_val/100) 
 else:
-    valve_expi_val = min(100, max(0, valve_expi_val))
     GPIO.setup(valve_expi_pin, GPIO.OUT)
     valve_expi_pwm = GPIO.PWM(valve_expi_pin, valves_pwm_freq)
     valve_expi_pwm.start(valve_expi_val)
@@ -543,26 +521,30 @@ while True:
         if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close valves to maintain PEEP...
             if not PEEP_reached: # Initialization for PEEP control later...
                 valve_air_val = valves_init
+                valve_O2_val = valves_init
                 valve_expi_val = 100
             PEEP_reached = True
-            valve_O2_val = 0
-            if (flow_PEEP_control_air <= 0):
+            if (PEEP <= 0) or ((flow_PEEP_control_air <= 0) and (flow_PEEP_control_O2 <= 0)):
                 valve_air_val = 0
+                valve_O2_val = 0
                 valve_inspi_val = GPIO.LOW
                 valve_expi_val = 0
             else:
-                if (PEEP <= 0):
-                    valve_air_val = 0
-                    valve_inspi_val = GPIO.LOW
-                    valve_expi_val = 0
-                else:
-                    err_flow_PEEP_air = (flow_PEEP_control_air-flow_filtered_air*60000.0)/float(flow_PEEP_control_air)
-                    valve_air_val = max(0, min(100, valve_air_val+valve_flow_PEEP_control_air_coef*dt*err_flow_PEEP_air))
-                    valve_inspi_val = GPIO.HIGH
-                    pressure_PEEP_ratio = ((p-p0)-PEEP)/float(PEEP)
-                    valve_expi_val = max(0, min(100, valve_expi_val+valve_pressure_PEEP_control_expi_coef*dt*pressure_PEEP_ratio))
+                valve_inspi_val = GPIO.HIGH
+                pressure_PEEP_ratio = ((p-p0)-PEEP)/float(PEEP)
+                valve_expi_val = max(0, min(100, valve_expi_val+valve_pressure_PEEP_control_expi_coef*dt*pressure_PEEP_ratio))
+            if (flow_PEEP_control_air > 0):
+                err_flow_PEEP_air = (flow_PEEP_control_air-flow_filtered_air*60000.0)/float(flow_PEEP_control_air)
+                valve_air_val = max(0, min(100, valve_air_val+valve_flow_PEEP_control_air_coef*dt*err_flow_PEEP_air))
+            else:
+                valve_air_val = 0
+            if (flow_PEEP_control_O2 > 0):
+                err_flow_PEEP_O2 = (flow_PEEP_control_O2-flow_filtered_O2*60000.0)/float(flow_PEEP_control_O2)
+                valve_O2_val = max(0, min(100, valve_O2_val+valve_flow_PEEP_control_O2_coef*dt*err_flow_PEEP_O2))
+            else:
+                valve_O2_val = 0
         else:
-            if (p-p0 > PEEP*1.25): valve_air_val = 100 # Full to depress...
+            if (p-p0 > PEEP*1.25): valve_air_val = 100 # Full to depress, or should be controlled by flow_filtered_expi to not depress too fast...?
             else: valve_air_val = valves_init # We are close to PEEP so no need to depress...
             valve_O2_val = 0 # Should not spend O2 to depress...
             valve_inspi_val = GPIO.LOW
@@ -585,18 +567,9 @@ while True:
     # Actuators
     valve_air_val = min(100, max(0, valve_air_val))
     valve_O2_val = min(100, max(0, valve_O2_val))
-    if not enable_hard_pwm_air_O2_valves:
-        # Hardware PWM for balloon servos
-        pwm0_ns = min(pwm0_ns_max, max(pwm0_ns_min, pwm0_ns))
-        pwm1_ns = min(pwm1_ns_max, max(pwm1_ns_min, pwm1_ns))
-        pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
-        pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
-        if not disable_hard_pwm:
-            os.system(pwm0_cmd.format(math.trunc(pwm0_ns)))
-            os.system(pwm1_cmd.format(math.trunc(pwm1_ns)))
-        # Software PWM for air and O2 proportional valves
-        valve_air_pwm.ChangeDutyCycle(valve_air_val) 
-        valve_O2_pwm.ChangeDutyCycle(valve_O2_val) 
+    if enable_pigpio:
+        pi.set_PWM_dutycycle(valve_air_pin, 255*valve_air_val/100)
+        pi.set_PWM_dutycycle(valve_O2_pin, 255*valve_O2_val/100)
     else:
         # Hardware PWM for air and O2 proportional valves
         pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
@@ -605,14 +578,10 @@ while True:
             os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
             os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
     GPIO.output(valve_inspi_pin, valve_inspi_val)
-    if not enable_pwm_expi_valve:
-        if (valve_expi_val <= 0): GPIO.output(valve_expi_pin, GPIO.LOW)
-        else: GPIO.output(valve_expi_pin, GPIO.HIGH)
-    elif enable_pigpio_pwm:
-        valve_expi_val = min(100, max(0, valve_expi_val))
+    valve_expi_val = min(100, max(0, valve_expi_val))
+    if enable_pigpio:
         pi.set_PWM_dutycycle(valve_expi_pin, 255*valve_expi_val/100)
     else:
-        valve_expi_val = min(100, max(0, valve_expi_val))
         valve_expi_pwm.ChangeDutyCycle(valve_expi_val)
 
     # Buttons to set parameters

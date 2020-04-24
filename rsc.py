@@ -402,3 +402,24 @@ class HRSC(object):
             i = i+1
             if i >= len(self.sensor_rom): break
         file.close()
+
+if __name__ == "__main__":
+    flow_air_rsc = HRSC(spi_bus = 0)
+    flow_air_rsc.sensor_info()
+    flow_air_rsc.reset()
+    time.sleep(0.005)
+    flow_air_rsc.adc_configure()
+    flow_air_rsc.set_speed(175)
+    time.sleep(0.005)
+    i = 0
+    while True:        
+        flow_air_rsc.pressure_request()
+        time.sleep(0.05)
+        raw_pressure_air = flow_air_rsc.pressure_reply()
+        flow_air_rsc.temperature_request()
+        time.sleep(0.05)
+        raw_temperature_air = flow_air_rsc.temperature_reply()
+        pressure_air, temperature_air = flow_air_rsc.comp_readings(raw_pressure_air, raw_temperature_air)
+        print('pressure_air = %0.5f mbar, temperature_air = %0.3f C') % (flow_air_rsc.conv_pressure_to_mbar(pressure_air), temperature_air)
+        time.sleep(1)        
+        i = i+1

@@ -3,6 +3,7 @@ try:
     import smbus
 except:
     print('Try sudo apt-get install python-smbus')
+import time
 
 class HHSC(object):
 
@@ -12,6 +13,7 @@ class HHSC(object):
         self.addr = addr
         self.min_pressure = float(min_pressure)
         self.max_pressure = float(max_pressure)
+        self.unit = unit
         self.transfer = transfer
         self.output_min = 0.00*0x4000
         self.output_max = 1.00*0x4000
@@ -39,14 +41,14 @@ class HHSC(object):
     # In C
     def read_temperature(self):
         # From https://www.raspberrypi.org/forums/viewtopic.php?t=33334
-        ans = self.bus.read_word_data(self._addr, 0x03) # Send I2C address and read bit, return two 8 bit bytes
+        ans = self.bus.read_word_data(self.addr, 0x03) # Send I2C address and read bit, return two 8 bit bytes
         ans = (((ans & 0x00FF) << 8) + ((ans & 0xFF00) >> 8)) # Byte swap them
         ans = ans*200.0/2047.0/32.0-50
         return ans
 
     # In sensor unit
     def read_pressure(self):
-        ans = self.bus.read_word_data(self._addr, 0x01) # Send I2C address and read bit, return two 8 bit bytes
+        ans = self.bus.read_word_data(self.addr, 0x01) # Send I2C address and read bit, return two 8 bit bytes
         ans = (((ans & 0x00FF) << 8) + ((ans & 0xFF00) >> 8)) # Byte swap them
         ans = (ans-self.output_min)*(self.max_pressure-self.min_pressure)/(self.output_max-self.output_min)+self.min_pressure
         return ans
@@ -65,10 +67,18 @@ class HHSC(object):
     # Return pressure in mbar and temperature in C
     def read(self):
         ans = [0] * 4
-        ans = self.bus.read_block_data(self._addr, 0x01) # Send I2C address and read bit, return four 8 bit bytes
+        ans = self.bus.read_block_data(self.addr, 0x01) # Send I2C address and read bit, return four 8 bit bytes
         pres = (ans[0] << 8) + ans[1]
         pres = (pres-self.output_min)*(self.max_pressure-self.min_pressure)/(self.output_max-self.output_min)+self.min_pressure
         pres = conv_pressure_to_mbar(self, pres)
         temp = (ans[2] << 8) + ans[3]
         temp = temp*200.0/2047.0/32.0-50
         return pres, temp
+
+if __name__ == "__main__":
+    p_inspi_hsc = HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+    i = 0
+    while True:        
+        print(p_inspi_hsc.conv_pressure_to_mbar(p_inspi_hsc.read_pressure()))
+        time.sleep(1)        
+        i = i+1
