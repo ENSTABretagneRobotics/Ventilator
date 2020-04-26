@@ -18,7 +18,7 @@ scale2y = 100
 offset2y = 20
 ###############################################################################
 
-nb_cols = 37 # Not counting the final '\n'
+nb_cols = 38 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -28,6 +28,7 @@ Ppeak_plot = [0]
 PEEP_plot = [0]
 flow_control_air_plot = [0]
 flow_control_O2_plot = [0]
+flow_control_expi_plot = [0]
 valve_air_plot = [0]
 valve_O2_plot = [0]
 valve_inspi_plot = [0]
@@ -70,6 +71,7 @@ c_Ppeak = plt.plot(t_plot, Ppeak_plot, pen = '#FFFFFF')
 c_PEEP = plt.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
 c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
 c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
+c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
 c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
 c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
 c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
@@ -119,41 +121,81 @@ while True:
                 if (len(cols) > nb_cols): # Need the final '\n' so we are sure the numbers are fully written
                     #print(cols)
                     try:
-                        t = float(cols[0])
-                        t0 = float(cols[1])
-                        p0 = float(cols[2])
-                        temperature0 = float(cols[3])
-                        p = float(cols[4])
-                        temperature = float(cols[5])
-                        p_e = float(cols[6])
-                        temperature_e = float(cols[7])
-                        select = float(cols[8])
-                        Ppeak = float(cols[9])
-                        PEEP = float(cols[10])
-                        respi_rate = float(cols[11])
-                        inspi_ratio = float(cols[12])
-                        flow_control_air = float(cols[13])
-                        flow_control_O2 = float(cols[14])
-                        mode = float(cols[15])
-                        valve_air = float(cols[18])
-                        valve_O2 = float(cols[19])
-                        valve_inspi = float(cols[20])
-                        valve_expi = float(cols[21])
-                        pressure_air = float(cols[22])
-                        pressure_expi = float(cols[23])
-                        pressure_O2 = float(cols[24])
-                        temperature_air = float(cols[25])
-                        temperature_expi = float(cols[26])
-                        temperature_O2 = float(cols[27])
-                        flow_air = float(cols[28])
-                        flow_expi = float(cols[29])
-                        flow_O2 = float(cols[30])
-                        flow_filtered_air = float(cols[31])
-                        flow_filtered_expi = float(cols[32])
-                        flow_filtered_O2 = float(cols[33])
-                        vol_air = float(cols[34])
-                        vol_expi = float(cols[35])
-                        vol_O2 = float(cols[36])
+                        index = 0
+                        t = float(cols[index])
+                        index = index+1
+                        t0 = float(cols[index])
+                        index = index+1
+                        p0 = float(cols[index])
+                        index = index+1
+                        temperature0 = float(cols[index])
+                        index = index+1
+                        p = float(cols[index])
+                        index = index+1
+                        temperature = float(cols[index])
+                        index = index+1
+                        p_e = float(cols[index])
+                        index = index+1
+                        temperature_e = float(cols[index])
+                        index = index+1
+                        select = float(cols[index])
+                        index = index+1
+                        Ppeak = float(cols[index])
+                        index = index+1
+                        PEEP = float(cols[index])
+                        index = index+1
+                        respi_rate = float(cols[index])
+                        index = index+1
+                        inspi_ratio = float(cols[index])
+                        index = index+1
+                        flow_control_air = float(cols[index])
+                        index = index+1
+                        flow_control_O2 = float(cols[index])
+                        index = index+1
+                        flow_control_expi = float(cols[index])
+                        index = index+1
+                        mode = float(cols[index])
+                        index = index+1
+                        index = index+1
+                        index = index+1
+                        valve_air = float(cols[index])
+                        index = index+1
+                        valve_O2 = float(cols[index])
+                        index = index+1
+                        valve_inspi = float(cols[index])
+                        index = index+1
+                        valve_expi = float(cols[index])
+                        index = index+1
+                        pressure_air = float(cols[index])
+                        index = index+1
+                        pressure_expi = float(cols[index])
+                        index = index+1
+                        pressure_O2 = float(cols[index])
+                        index = index+1
+                        temperature_air = float(cols[index])
+                        index = index+1
+                        temperature_expi = float(cols[index])
+                        index = index+1
+                        temperature_O2 = float(cols[index])
+                        index = index+1
+                        flow_air = float(cols[index])
+                        index = index+1
+                        flow_expi = float(cols[index])
+                        index = index+1
+                        flow_O2 = float(cols[index])
+                        index = index+1
+                        flow_filtered_air = float(cols[index])
+                        index = index+1
+                        flow_filtered_expi = float(cols[index])
+                        index = index+1
+                        flow_filtered_O2 = float(cols[index])
+                        index = index+1
+                        vol_air = float(cols[index])
+                        index = index+1
+                        vol_expi = float(cols[index])
+                        index = index+1
+                        vol_O2 = float(cols[index])
+                        index = index+1
 
                         dt = t-t0
                         p_cmh2o = (p-p0)*1.01972
@@ -169,6 +211,7 @@ while True:
                             PEEP_plot = [0]
                             flow_control_air_plot = [0]
                             flow_control_O2_plot = [0]
+                            flow_control_expi_plot = [0]
                             valve_air_plot = [0]
                             valve_O2_plot = [0]
                             valve_inspi_plot = [0]
@@ -199,11 +242,14 @@ while True:
                             wintitle = '[Flow O: {:d}]'
                             win.setWindowTitle(wintitle.format(int(flow_control_O2)))
                         elif (select == 6): 
+                            wintitle = '[Flow E: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control_expi)))
+                        elif (select == 7): 
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
                         else: 
-                            wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Mode: {:d}'
-                            win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(mode)))
+                            wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
+                            win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
                         plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
                         plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
@@ -215,6 +261,7 @@ while True:
                         PEEP_plot.append(PEEP)
                         flow_control_air_plot.append(flow_control_air)
                         flow_control_O2_plot.append(flow_control_O2)
+                        flow_control_expi_plot.append(flow_control_expi)
                         valve_air_plot.append(valve_air/10.0)
                         valve_O2_plot.append(valve_O2/10.0)
                         valve_inspi_plot.append(10.0*valve_inspi)
@@ -234,6 +281,7 @@ while True:
                             PEEP_plot.pop(0)
                             flow_control_air_plot.pop(0)
                             flow_control_O2_plot.pop(0)
+                            flow_control_expi_plot.pop(0)
                             valve_air_plot.pop(0)
                             valve_O2_plot.pop(0)
                             valve_inspi_plot.pop(0)
@@ -260,6 +308,7 @@ while True:
     c_PEEP.setData(t_plot, PEEP_plot)
     c_flow_control_air.setData(t_plot, flow_control_air_plot)
     c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
+    c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
     c_valve_air.setData(t_plot, valve_air_plot)
     c_valve_O2.setData(t_plot, valve_O2_plot)
     c_valve_inspi.setData(t_plot, valve_inspi_plot)
