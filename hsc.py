@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from __future__ import division
 try:
     import smbus
@@ -35,7 +36,7 @@ class HHSC(object):
         try:
             self.bus = smbus.SMBus(bus)
         except:
-            print('Bus %d is not available') % bus
+            print(('Bus %d is not available') % bus)
             return
 
     # In C
@@ -79,6 +80,6 @@ if __name__ == "__main__":
     p_inspi_hsc = HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
     i = 0
     while True:        
-        print(p_inspi_hsc.conv_pressure_to_mbar(p_inspi_hsc.read_pressure()))
+        print((p_inspi_hsc.conv_pressure_to_mbar(p_inspi_hsc.read_pressure())))
         time.sleep(1)        
         i = i+1

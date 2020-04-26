@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 from __future__ import division
 import RPi.GPIO as GPIO
 import ms5837 # From https://github.com/bluerobotics/ms5837-python
@@ -13,19 +14,20 @@ import threading
 from timeit import default_timer as timer
 #from utils import *
 
-#sudo apt-get install python-smbus python-spidev
+#sudo apt-get install python-smbus python-spidev python-pyqtgraph
 # or
 #sudo pip install smbus
 #sudo pip install spidev
-# if it did not work.
-# Raspberry Pi 4 configuration (GPIO that will be used : 0 for digital output
-# (expi), 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2)/2, 3 for 
-# software PWM air and O2 valves, 4, 5 for Honeywell HSC (inspi) and I2C3 Bar02
-# (inspi), 6 for digital output (inspi), 7, 8, 9, 10, 11 for SPI0 Honeywell RSC
-# for flow (air), 12, 13 for O2 and air valves/balloon PWM servomotors, 16 for 
+#sudo pip install pyqtgraph
+# if it did not work and/or try also with python3 and pip3.
+# Raspberry Pi 4 configuration (GPIO that will be used : 0 for software PWM 
+# expiration valve, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2), 4, 5
+# for Honeywell HSC (inspiration) and I2C3 Bar02 (inspiration), 6 for digital 
+# output inspiration valve, 7, 8, 9, 10, 11 for SPI0 Honeywell RSC for flow 
+# (air), 12, 13 for PWM O2 and air valves/balloon PWM servomotors, 16 for 
 # digital input UP button, 17 for digital input DOWN button, 18, 19, 20, 21, 27
 # for SPI6 Honeywell RSC for flow (expiration), 22, 23 for Honeywell HSC 
-# (expi), I2C6 Bar02 (room), touchscreen, RTC clock, 24 for digital input 
+# (expiration), I2C6 Bar02 (room), touchscreen, RTC clock, 24 for digital input
 # SELECT button, 25 for POWER button), 26 for software PWM buzzer :
 #sudo nano /boot/config.txt
 # Add/modify in /boot/config.txt (SPI6 might appear as 4, check /dev...)
@@ -870,8 +872,8 @@ while True:
     except:
         if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
 
-    if (debug): print('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP A: %0.5f mbar \tP off. A: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
-        t-t0, dt, p0, temperature0, p, temperature, pressure_air, pressure_offset_air, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2) 
+    if (debug): print(('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP A: %0.5f mbar \tP off. A: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
+        t-t0, dt, p0, temperature0, p, temperature, pressure_air, pressure_offset_air, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2)) 
     
     # Prepare next loop...
     t_prev = t

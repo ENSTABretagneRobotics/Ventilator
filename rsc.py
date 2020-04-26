@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Copyright (c) 2017 xDevs.com
 # Author: Illya Tsemenko
 #
@@ -20,6 +22,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
+from __future__ import print_function
 from __future__ import division
 import time
 import struct
@@ -148,22 +152,22 @@ class HRSC(object):
     
     def sensor_info(self):
         # Check for correct status
-        print('\033[0;32mCatalog listing : %s' % str(bytearray(self.sensor_rom[0:16])))
-        print('Serial number   : %s' % str(bytearray(self.sensor_rom[16:27])))
-        print('Pressure range  :')
+        print(('\033[0;32mCatalog listing : %s' % bytearray(self.sensor_rom[0:16]).decode("utf-8")))
+        print(('Serial number   : %s' % bytearray(self.sensor_rom[16:27]).decode("utf-8")))
+        print('Pressure range  :', end = ' ')
         b = self.conv_to_float(self.sensor_rom[27], self.sensor_rom[28], self.sensor_rom[29], self.sensor_rom[30])
-        print(b, self.sensor_rom[27:31])
-        print('Pressure min    :')
+        print((b, self.sensor_rom[27:31]))
+        print('Pressure min    :', end = ' ')
         b = self.conv_to_float(self.sensor_rom[31], self.sensor_rom[32], self.sensor_rom[33], self.sensor_rom[34])
-        print(b, self.sensor_rom[31:35])                
-        print('Pressure units  : %s' % str(bytearray(self.sensor_rom[35:40])))
+        print((b, self.sensor_rom[31:35]))                
+        print(('Pressure units  : %s' % bytearray(self.sensor_rom[35:40]).decode("utf-8")))
         if (self.sensor_rom[40] == 68):
             print('Pressure ref    : Differential')
         else:
             print('Pressure ref    : Absolute')
-        print('Checksum        :')
+        print('Checksum        :', end = ' ')
         b = self.conv_to_short(self.sensor_rom[450], self.sensor_rom[451])
-        print(b, self.sensor_rom[450:452])
+        print((b, self.sensor_rom[450:452]))
         print('\033[0;39m')
    
     def set_speed(self, data_rate): # In SPS
@@ -221,7 +225,7 @@ class HRSC(object):
         #self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         ## Write configuration register
         #self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        ##print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
+        ##print(('\033[0;36mADC config %02X : %02X\033[0;39m') % (self.command, self.reg_wr))
         #test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
         #self.spi.close()
 
@@ -229,13 +233,13 @@ class HRSC(object):
         raw = (raw_temp & 0xFFFF00) >> 10
         #raw = raw_temp
         if (raw & 0x2000):
-            #print "MSB is 1, negative temp"
+            #print('MSB is 1, negative temp')
             raw = (0x3fff - (raw - 1))
             temp = -(float(raw) * 0.03125)
         else:
-            #print "MSB is 0, positive temp"
+            #print('MSB is 0, positive temp')
             temp = (float(raw) * 0.03125)
-        #print "RAW: %s %s , %4.3f" % (hex(raw_temp), hex(raw), temp )
+        #print(('RAW: %s %s , %4.3f') % (hex(raw_temp), hex(raw), temp))
         return temp
     
     def temperature_request(self):
@@ -251,7 +255,7 @@ class HRSC(object):
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
         self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
+        #print(('\033[0;36mADC config %02X : %02X\033[0;39m') % (self.command, self.reg_wr))
         test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
     
     def temperature_reply(self):
@@ -295,7 +299,7 @@ class HRSC(object):
         self.reg_wr = (self.reg_dr << 5) | (self.reg_mode << 3) | (1 << 2) | (reg_sensor << 1) | 0b00
         # Write configuration register
         self.command = HRSC_ADC_WREG|(self.regaddr << 2)|(self.bytewr & 0x03)
-        #print ("\033[0;36mADC config %02X : %02X\033[0;39m" % (self.command, self.reg_wr))
+        #print(('\033[0;36mADC config %02X : %02X\033[0;39m') % (self.command, self.reg_wr))
         test = self.spi.xfer([self.command, self.reg_wr], self.spi_speed_hz)
 
     def pressure_reply(self):
@@ -305,11 +309,11 @@ class HRSC(object):
         #print float(press) / pow(2,23)
         self.spi.close()
         if ((adc_data[0]<<16|adc_data[1]<<8|adc_data[2]) > 0x7FFFFF):
-        #    print "NEgative"
+             #print('NEgative')
              pdatad = ((adc_data[0]<<16|adc_data[1]<<8|adc_data[2])) - 0x1000000
              return pdatad
         else: # ((adc_data[0]<<16|adc_data[1]<<8|adc_data[2]) < 0x1000000):
-        #    print "POSiTive"
+             #print('POSiTive')
              pdatad = (adc_data[0]<<16|adc_data[1]<<8|adc_data[2])
              return pdatad
 
@@ -353,26 +357,20 @@ class HRSC(object):
         raw_temp2 = raw_temp * raw_temp
         raw_temp3 = raw_temp2 * raw_temp
 
-        #print ("Temps ",raw_temp,raw_temp2,raw_temp3)
-
-        #print "Pressure data = %X %d " % (self.read_pressure(), self.read_pressure())
         #Pint1 = (self.read_pressure(delay) ) - ( (OffsetCoefficient3 * raw_temp3) + (OffsetCoefficient2 * raw_temp2) + (OffsetCoefficient1 * raw_temp) + OffsetCoefficient0 )
         Pint1 = raw_pressure + self.raw_auto_zero_pressure - ( (OffsetCoefficient3 * raw_temp3) + (OffsetCoefficient2 * raw_temp2) + (OffsetCoefficient1 * raw_temp) + OffsetCoefficient0 ) # Intermediate value 1
-        #print "Pint1", Pint1
         Pint2 = Pint1 / ((SpanCoefficient3 * raw_temp3) + (SpanCoefficient2 * raw_temp2) + (SpanCoefficient1 * raw_temp) + SpanCoefficient0) # Intermediate value 2
-        #print "Pint2", Pint2
 
         Ptemp2 = (Pint2 * Pint2)
         Ptemp3 = (Ptemp2 * Pint2)
 
         PComp_FS = (ShapeCoefficient3 * Ptemp3) + (ShapeCoefficient2 * Ptemp2) + (ShapeCoefficient1 * Pint2) + ShapeCoefficient0 # Compensated output pressure, in units
-        #print "PComp_FS", PComp_FS
         self.PCompr = (PComp_FS * PRange) + Pmin #[Engineering Units]
         #print "\033[1;33mPComp out = %f" % self.PCompr
         return self.PCompr, temperature
  
     def conv_pressure_to_mbar(self, pressure_in_sensor_unit):
-        sensor_unit = str(bytearray(self.sensor_rom[35:40]))
+        sensor_unit = bytearray(self.sensor_rom[35:40]).decode("utf-8")
         output = 0
         if (sensor_unit.lower() == 'mbar'.lower()): output = pressure_in_sensor_unit
         elif (sensor_unit.lower() == 'bar'.lower()): output = pressure_in_sensor_unit*1000.0
@@ -397,7 +395,7 @@ class HRSC(object):
         i = 0
         cols = data[0].split(' ')
         for val in cols:
-            #print(int(val))
+            #print((int(val)))
             self.sensor_rom[i] = int(val)
             i = i+1
             if i >= len(self.sensor_rom): break
@@ -420,6 +418,6 @@ if __name__ == "__main__":
         time.sleep(0.05)
         raw_temperature_air = flow_air_rsc.temperature_reply()
         pressure_air, temperature_air = flow_air_rsc.comp_readings(raw_pressure_air, raw_temperature_air)
-        print('pressure_air = %0.5f mbar, temperature_air = %0.3f C') % (flow_air_rsc.conv_pressure_to_mbar(pressure_air), temperature_air)
+        print(('pressure_air = %0.5f mbar, temperature_air = %0.3f C') % (flow_air_rsc.conv_pressure_to_mbar(pressure_air), temperature_air))
         time.sleep(1)        
         i = i+1
