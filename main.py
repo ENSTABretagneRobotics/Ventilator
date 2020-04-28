@@ -46,14 +46,14 @@ from timeit import default_timer as timer
 
 # Parameters
 ###############################################################################
-Ppeak = 25 # In mbar (= approx. cmH2O)
+Ppeak = 30 # In mbar (= approx. cmH2O)
 PEEP = 5 # In mbar (= approx. cmH2O)
-respi_rate = 15 # In breaths/min
+respi_rate = 10 # In breaths/min
 inspi_ratio = 0.3
-flow_control_air = 30 # In L/min, >= flow_control_air_max means no limit...
+flow_control_air = 60 # In L/min, >= flow_control_air_max means no limit...
 flow_control_O2 = 30 # In L/min, >= flow_control_O2_max means no limit...
-flow_control_expi = 30 # In L/min, >= flow_control_expi_max means no limit...
-mode = 2 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
+flow_control_expi = 0 # In L/min, >= flow_control_expi_max means no limit, <= 0 means no depress...
+mode = 0 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
 # Advanced parameters
 # Trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
@@ -87,20 +87,22 @@ mode_max = 2
 enable_pigpio = True
 enable_buzzer = True
 disable_hard_pwm = False
-enable_p_ms5837 = True
-enable_p0_ms5837 = True
-enable_p_inspi_hsc = False
+enable_p_ms5837 = False
+enable_p0_ms5837 = False
+enable_p_inspi_hsc = True
 enable_p_expi_hsc = False
 enable_air_rsc = True
-enable_expi_rsc = False
-enable_O2_rsc = True
-R1_air = 0.019100/2.0 # In m
+enable_expi_rsc = True
+enable_O2_rsc = False
+#R1_air = 0.019100/2.0 # In m
+R1_air = 0.009000/2.0 # In m
 #R2_air = 0.011651/2.0 # In m
 R2_air = 0.006500/2.0 # In m
 R1_expi = 0.019100/2.0 # In m
 #R2_expi = 0.011651/2.0 # In m
 R2_expi = 0.006500/2.0 # In m
-R1_O2 = 0.019100/2.0 # In m
+#R1_O2 = 0.019100/2.0 # In m
+R1_O2 = 0.009000/2.0 # In m
 #R2_O2 = 0.011651/2.0 # In m
 R2_O2 = 0.006500/2.0 # In m
 A1_air = math.pi*R1_air**2 # In m2
@@ -112,29 +114,29 @@ A2_O2 = math.pi*R2_O2**2 # In m2
 speed_rsc = 175 # In SPS
 delay_rsc = 0.010 # In s
 coef_filter_rsc = 0.95
-nb_count_auto_zero_filter_rsc = 0 # 100
-nb_count_offset_filter_rsc = 0 # 100
+nb_count_auto_zero_filter_rsc = 100 # 100
+nb_count_offset_filter_rsc = 100 # 100
 valves_pwm_freq = 800 # In Hz
 valves_init = 50
 valves_delay = 0.2 # In s
 inspi_detection_delay = 0.25 # In s
 PEEP_inspi_detection_delta = 2.5 # Should be > PEEP_err, in mbar (= approx. cmH2O)
 PEEP_err = 2.0 # Should be < PEEP_inspi_detection_delta, in mbar (= approx. cmH2O)
-P_err = 7.5 # In mbar (= approx. cmH2O)
+P_err = 50 # 7.5 # In mbar (= approx. cmH2O)
 coef_offset_filter_flow = 0.99
-coef_filter_flow = 0.7
-flow_thresh = 15 # In L/min
-flow_PEEP_control_air = 10 # In L/min
-flow_PEEP_control_O2 = 10 # In L/min
-valve_pressure_PEEP_control_expi_coef = 2.0
-valve_flow_PEEP_control_air_coef = 1.0
-valve_flow_PEEP_control_O2_coef = 1.0
-valve_depress_flow_control_expi_coef = 1.0
+coef_filter_flow = 0.3
+flow_thresh = 2 # In L/min
+flow_PEEP_control_air = 30 # 10 # In L/min
+flow_PEEP_control_O2 = 30 # 10 # In L/min
+valve_pressure_PEEP_control_expi_coef = 4.0
+valve_flow_PEEP_control_air_coef = 4.0
+valve_flow_PEEP_control_O2_coef = 4.0
+valve_depress_flow_control_expi_coef = 4.0
 valve_pressure_excess_control_air_coef = 4.0
 valve_pressure_excess_control_O2_coef = 4.0
-valve_flow_control_air_coef = 1.0
-valve_flow_control_O2_coef = 1.0
-debug = False
+valve_flow_control_air_coef = 4.0
+valve_flow_control_O2_coef = 4.0
+debug = True
 ###############################################################################
 
 GPIO.setwarnings(False)	
@@ -170,10 +172,10 @@ valve_O2_val = min(100, max(0, valve_O2_val))
 if enable_pigpio:
     pi.set_mode(valve_air_pin, pigpio.OUTPUT)
     pi.set_PWM_frequency(valve_air_pin, valves_pwm_freq)
-    pi.set_PWM_dutycycle(valve_air_pin, 255*valve_air_val/100)
+    pi.set_PWM_dutycycle(valve_air_pin, int(min(255, max(0, 255*valve_air_val/100))))
     pi.set_mode(valve_O2_pin, pigpio.OUTPUT)
     pi.set_PWM_frequency(valve_O2_pin, valves_pwm_freq)
-    pi.set_PWM_dutycycle(valve_O2_pin, 255*valve_O2_val/100)
+    pi.set_PWM_dutycycle(valve_O2_pin, int(min(255, max(0, 255*valve_O2_val/100))))
 else:
     # Hardware PWM for air and O2 proportional valves
     if not disable_hard_pwm:
@@ -203,11 +205,11 @@ valve_expi_val = min(100, max(0, valve_expi_val))
 if enable_pigpio:
     pi.set_mode(valve_expi_pin, pigpio.OUTPUT)
     pi.set_PWM_frequency(valve_expi_pin, valves_pwm_freq)
-    pi.set_PWM_dutycycle(valve_expi_pin, 255*valve_expi_val/100) 
+    pi.set_PWM_dutycycle(valve_expi_pin, int(min(255, max(0, 255-255*valve_expi_val/100)))) 
 else:
     GPIO.setup(valve_expi_pin, GPIO.OUT)
     valve_expi_pwm = GPIO.PWM(valve_expi_pin, valves_pwm_freq)
-    valve_expi_pwm.start(valve_expi_val)
+    valve_expi_pwm.start(int(100-valve_expi_val))
 
 # Digital inputs (buttons)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
@@ -263,7 +265,7 @@ if enable_p_inspi_hsc:
         print('HSC I sensor could not be initialized')
         time.sleep(0.1)
         try:
-            p_inspi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+            p_inspi_hsc = hsc.HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
         except:
             print('HSC I sensor could not be initialized')
             exit(1)
@@ -291,13 +293,13 @@ while (i < 5):
             time.sleep(0.1)
     if enable_p_inspi_hsc:
         try:
-            p_inspi_hsc.read_pressure()
+            p_diff_inspi_hsc, temp_inspi_hsc = p_inspi_hsc.read()
         except:
             print('HSC I sensor read failed!')
             time.sleep(0.1)
     if enable_p_expi_hsc:
         try:
-            p_expi_hsc.read_pressure()
+            p_diff_expi_hsc, temp_expi_hsc = p_expi_hsc.read()
         except:
             print('HSC E sensor read failed!')
             time.sleep(0.1)
@@ -308,15 +310,15 @@ pressure_air, temperature_air, flow_air, flow_filtered_air, vol_air, pressure_of
 pressure_expi, temperature_expi, flow_expi, flow_filtered_expi, vol_expi, pressure_offset_expi, flow_offset_expi = 0, 25, 0, 0, 0, 0, 0
 pressure_O2, temperature_O2, flow_O2, flow_filtered_O2, vol_O2, pressure_offset_O2, flow_offset_O2 = 0, 25, 0, 0, 0, 0, 0
 if enable_air_rsc: 
-    flow_air_rsc = rsc.HRSC(spi_bus = 4)
+    flow_air_rsc = rsc.HRSC(spi_bus = 0)
     flow_air_rsc.sensor_info()
     flow_air_rsc.reset()
 if enable_expi_rsc: 
-    flow_expi_rsc = rsc.HRSC(spi_bus = 3)
+    flow_expi_rsc = rsc.HRSC(spi_bus = 4)
     flow_expi_rsc.sensor_info()
     flow_expi_rsc.reset()
 if enable_O2_rsc: 
-    flow_O2_rsc = rsc.HRSC(spi_bus = 0)
+    flow_O2_rsc = rsc.HRSC(spi_bus = 3)
     flow_O2_rsc.sensor_info()
     flow_O2_rsc.reset()
 time.sleep(0.005)
@@ -464,8 +466,8 @@ p0 = 1000
 p = 1000
 p_e = 1000
 if enable_p_ms5837: p = p_ms5837.pressure()
-if enable_p_inspi_hsc: p = p0+p_inspi_hsc.conv_pressure_to_mbar(p_inspi_hsc.read_pressure())
-if enable_p_expi_hsc: p_e = p0+p_expi_hsc.conv_pressure_to_mbar(p_expi_hsc.read_pressure())
+if enable_p_inspi_hsc: p = p0+p_diff_inspi_hsc
+if enable_p_expi_hsc: p_e = p0+p_diff_expi_hsc
 p_prev = p
 p_cycle_start = p
 p0 = p
@@ -473,8 +475,8 @@ if enable_p0_ms5837: p0 = p0_ms5837.pressure()
 temperature = 25
 temperature_e = 25
 if enable_p_ms5837: temperature = p_ms5837.temperature()
-if enable_p_inspi_hsc: temperature = p_inspi_hsc.read_temperature()
-if enable_p_expi_hsc: temperature_e = p_expi_hsc.read_temperature()
+if enable_p_inspi_hsc: temperature = temp_inspi_hsc
+if enable_p_expi_hsc: temperature_e = temp_expi_hsc
 temperature0 = temperature
 if enable_p0_ms5837: temperature0 = p0_ms5837.temperature()
 Ppeak_reached = False
@@ -570,7 +572,9 @@ while True:
                     valve_air_val = max(0, min(100, valve_air_val+valve_depress_flow_control_expi_coef*dt*err_flow_expi))
                 else:
                     valve_air_val = 100 # Full to depress...
-            else: valve_air_val = valves_init # We are close to PEEP so no need to depress much...
+            else: 
+                if (flow_control_expi <= 0): valve_air_val = 0 # Do not depress...
+                else: valve_air_val = valves_init # We are close to PEEP so no need to depress much...
             valve_O2_val = 0 # Should not spend O2 to depress...
             valve_inspi_val = GPIO.LOW # To be able to use air to depress...
             valve_expi_val = 100
@@ -599,8 +603,8 @@ while True:
     valve_air_val = min(100, max(0, valve_air_val))
     valve_O2_val = min(100, max(0, valve_O2_val))
     if enable_pigpio:
-        pi.set_PWM_dutycycle(valve_air_pin, 255*valve_air_val/100)
-        pi.set_PWM_dutycycle(valve_O2_pin, 255*valve_O2_val/100)
+        pi.set_PWM_dutycycle(valve_air_pin, int(min(255, max(0, 255*valve_air_val/100))))
+        pi.set_PWM_dutycycle(valve_O2_pin, int(min(255, max(0, 255*valve_O2_val/100))))
     else:
         # Hardware PWM for air and O2 proportional valves
         pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
@@ -611,9 +615,9 @@ while True:
     GPIO.output(valve_inspi_pin, valve_inspi_val)
     valve_expi_val = min(100, max(0, valve_expi_val))
     if enable_pigpio:
-        pi.set_PWM_dutycycle(valve_expi_pin, 255*valve_expi_val/100)
+        pi.set_PWM_dutycycle(valve_expi_pin, int(min(255, max(0, 255-255*valve_expi_val/100))))
     else:
-        valve_expi_pwm.ChangeDutyCycle(valve_expi_val)
+        valve_expi_pwm.ChangeDutyCycle(int(100-valve_expi_val))
 
     # Buttons to set parameters
     select_button_val = GPIO.input(select_button_pin)
@@ -721,12 +725,12 @@ while True:
                 exit(1)
     elif enable_p_inspi_hsc:
         try:
-            p_diff_inspi_hsc, temp_tmp_inspi_hsc = p_inspi_hsc.read()
+            p_diff_inspi_hsc, temp_inspi_hsc = p_inspi_hsc.read()
         except:
             print('HSC I sensor read failed!')
             time.sleep(0.1)
             try:
-                p_diff_inspi_hsc, temp_tmp_inspi_hsc = p_inspi_hsc.read()
+                p_diff_inspi_hsc, temp_inspi_hsc = p_inspi_hsc.read()
             except:
                 print('HSC I sensor read failed!')
                 time.sleep(0.1)
@@ -736,12 +740,12 @@ while True:
         time.sleep(0.005)
     if enable_p_expi_hsc:
         try:
-            p_diff_expi_hsc, temp_tmp_expi_hsc = p_expi_hsc.read()
+            p_diff_expi_hsc, temp_expi_hsc = p_expi_hsc.read()
         except:
             print('HSC E sensor read failed!')
             time.sleep(0.1)
             try:
-                p_diff_expi_hsc, temp_tmp_expi_hsc = p_expi_hsc.read()
+                p_diff_expi_hsc, temp_expi_hsc = p_expi_hsc.read()
             except:
                 print('HSC E sensor read failed!')
                 time.sleep(0.1)
@@ -914,10 +918,10 @@ while True:
         temperature = p_ms5837.temperature()
     elif enable_p_inspi_hsc:
         p = p0+p_diff_inspi_hsc
-        temperature = temp_tmp_inspi_hsc
+        temperature = temp_inspi_hsc
     if enable_p_expi_hsc:
         p_e = p0+p_diff_expi_hsc
-        temperature_e = temp_tmp_expi_hsc
+        temperature_e = temp_expi_hsc
     if (t-t_cycle_start > cycle_duration_estim) or force_new_cycle:
         force_new_cycle = False
         t_cycle_start = t
