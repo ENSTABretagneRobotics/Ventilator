@@ -76,8 +76,13 @@ if __name__ == "__main__":
     p_inspi_hsc = HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
     i = 0
     while True:        
+        start_time = time.time()
+
         #print((p_inspi_hsc.conv_pressure_to_mbar(p_inspi_hsc.read_pressure())))
         pressure, temperature = p_inspi_hsc.read()
         print(('pressure = %0.5f mbar, temperature = %0.3f C') % (pressure, temperature))
-        time.sleep(1)        
+        #time.sleep(1)        
         i = i+1
+
+        end_time = time.time()
+        print('It has been %0.4f seconds since the loop started' %(end_time - start_time))

@@ -326,7 +326,7 @@ while True:
     #count += 1
 
     end_time = time.time()
-    #print('It has been %0.3f seconds since the loop started' %(end_time - start_time))
+    #print('It has been %0.4f seconds since the loop started' %(end_time - start_time))
 
 file.close()
 
