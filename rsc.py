@@ -372,13 +372,13 @@ class HRSC(object):
     def conv_pressure_to_mbar(self, pressure_in_sensor_unit):
         sensor_unit = bytearray(self.sensor_rom[35:40]).decode("utf-8")
         output = 0
-        if (sensor_unit.lower() == 'mbar'.lower()): output = pressure_in_sensor_unit
-        elif (sensor_unit.lower() == 'bar'.lower()): output = pressure_in_sensor_unit*1000.0
-        elif (sensor_unit.lower() == 'Pa'.lower()): output = pressure_in_sensor_unit*0.01
-        elif (sensor_unit.lower() == 'kPa'.lower()): output = pressure_in_sensor_unit*10.0
-        elif (sensor_unit.lower() == 'MPa'.lower()): output = pressure_in_sensor_unit*10000.0
+        if (sensor_unit.lower() == 'mbar\0'.lower()): output = pressure_in_sensor_unit
+        elif (sensor_unit.lower() == 'bar\0\0'.lower()): output = pressure_in_sensor_unit*1000.0
+        elif (sensor_unit.lower() == 'Pa\0\0\0'.lower()): output = pressure_in_sensor_unit*0.01
+        elif (sensor_unit.lower() == 'kPa\0\0'.lower()): output = pressure_in_sensor_unit*10.0
+        elif (sensor_unit.lower() == 'MPa\0\0'.lower()): output = pressure_in_sensor_unit*10000.0
         elif (sensor_unit.lower() == 'inH2O'.lower()): output = pressure_in_sensor_unit*2.4884
-        elif (sensor_unit.lower() == 'psi'.lower()): output = pressure_in_sensor_unit*68.9476
+        elif (sensor_unit.lower() == 'psi\0\0'.lower()): output = pressure_in_sensor_unit*68.9476
         return output
 
     # DO NOT USE, TO TRY TO REPAIR ERASED DEVICES...
