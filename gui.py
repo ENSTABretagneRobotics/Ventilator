@@ -16,6 +16,7 @@ scaley = 50
 offsety = 30
 scale2y = 100
 offset2y = 20
+debug = False
 ###############################################################################
 
 nb_cols = 38 # Not counting the final '\n'
@@ -39,50 +40,63 @@ flow_O2_plot = [0]
 flow_filtered_air_plot = [0]
 flow_filtered_expi_plot = [0]
 flow_filtered_O2_plot = [0]
+flow_filtered_plot = [0]
 vol_l_plot = [0]
 
 win = pg.GraphicsWindow()
 win.move(0, 0)
 win.resize(800, 420)
 win.setWindowTitle('Pressure, flow, volume')
-plt = win.addPlot()
-plt2 = win.addPlot()
+if debug:
+    plt = win.addPlot()
+    plt2 = win.addPlot()
+else: 
+    plt = win.addPlot(row = 0, col = 0)
+    plt2 = win.addPlot(row = 1, col = 0)
+    plt3 = win.addPlot(row = 2, col = 0)
 plt.showGrid(x = True, y = True)
 plt2.showGrid(x = True, y = True)
-plt.setTitle('Temp. I: 25.00 C, Temp. E: 25.00 C', **{'color': '#FFFFFF', 'size': '10pt'})
-plt2.setTitle('Temp. A: 25.00 C, Temp. E: 25.00 C, Temp. O: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
+if not debug: plt3.showGrid(x = True, y = True)
+if debug: plt.setTitle('Temp. I: 25.00 C, Temp. E: 25.00 C', **{'color': '#FFFFFF', 'size': '10pt'})
+if debug: plt2.setTitle('Temp. A: 25.00 C, Temp. E: 25.00 C, Temp. O: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
 plt.setLabel('left', 'Pressure (in cmH2O)', **{'color': '#FFFFFF', 'font-size': '10pt'})
 plt2.setLabel('left', 'Flow (in L/min)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-plt2.setLabel('right', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-plt.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-plt2.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+if debug: plt2.setLabel('right', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+else: plt3.setLabel('left', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+if debug: plt.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+if debug: plt2.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
 plt.addLegend(size = (0, 0), offset = (4, 1))
 plt2.addLegend(size = (0, 0), offset = (4, 1))
+if not debug: plt3.addLegend(size = (0, 0), offset = (4, 1))
 font = QtGui.QFont()
 font.setPixelSize(11)
 plt.getAxis('left').tickFont = font
 plt2.getAxis('left').tickFont = font
 plt2.getAxis('right').tickFont = font
+if not debug: plt3.getAxis('left').tickFont = font
 plt.getAxis('bottom').tickFont = font
 plt2.getAxis('bottom').tickFont = font
+if not debug: plt3.getAxis('bottom').tickFont = font
 c_p_cmh2o = plt.plot(t_plot, p_cmh2o_plot, pen = '#FFFF00', name = 'Inspi. pres.')
-c_p_e_cmh2o = plt.plot(t_plot, p_e_cmh2o_plot, pen = '#FFA500', name = 'Expi. pres.')
+if debug: c_p_e_cmh2o = plt.plot(t_plot, p_e_cmh2o_plot, pen = '#FFA500', name = 'Expi. pres.')
 c_Ppeak = plt.plot(t_plot, Ppeak_plot, pen = '#FFFFFF')
 c_PEEP = plt.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
-c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
-c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
-c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
-c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
-c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
-c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
-c_valve_expi = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
-c_flow_air = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
-c_flow_expi = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
-c_flow_O2 = plt2.plot(t_plot, flow_O2_plot, pen = '#003030')
-c_flow_filtered_air = plt2.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
-c_flow_filtered_expi = plt2.plot(t_plot, flow_filtered_expi_plot, pen = '#FF0000', name = 'Expi. flow')
-c_flow_filtered_O2 = plt2.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
-c_vol_l = plt2.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
+if debug: c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
+if debug: c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
+if debug: c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
+if debug: c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
+if debug: c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
+if debug: c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
+if debug: c_valve_expi = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
+if debug: c_flow_air = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
+if debug: c_flow_expi = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
+if debug: c_flow_O2 = plt2.plot(t_plot, flow_O2_plot, pen = '#003030')
+if debug: c_flow_filtered_air = plt2.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
+if debug: c_flow_filtered_expi = plt2.plot(t_plot, flow_filtered_expi_plot, pen = '#FF0000', name = 'Expi. flow')
+if debug: c_flow_filtered_O2 = plt2.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
+if not debug: c_flow_filtered = plt2.plot(t_plot, flow_filtered_plot, pen = '#FF0000', name = 'Flow')
+if debug: c_vol_l = plt2.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
+else: c_vol_l = plt3.plot(t_plot, vol_l_plot, pen = '#00FF00', name = 'Volume')
 for item in plt.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
@@ -91,12 +105,20 @@ for item in plt2.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
             single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
+if not debug: 
+    for item in plt3.legend.items:
+        for single_item in item:
+            if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
+                single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
 if (scaley != 0): 
     plt.enableAutoRange('y', False)
     plt.setYRange(-scaley+offsety, scaley+offsety, 0)
 if (scale2y != 0): 
     plt2.enableAutoRange('y', False)
     plt2.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    if not debug: 
+        plt3.enableAutoRange('y', False)
+        plt3.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
 
 # Waiting for the file to be created...
 while True:
@@ -199,7 +221,8 @@ while True:
 
                         dt = t-t0
                         p_cmh2o = (p-p0)*1.01972
-                        p_e_cmh2o = (p_e-p0)*1.01972                        
+                        p_e_cmh2o = (p_e-p0)*1.01972  
+                        flow_filtered = flow_filtered_air+flow_filtered_O2+flow_filtered_expi
                         vol_l = (vol_air+vol_O2+vol_expi)
 
                         if (dt < t_plot[-1]): 
@@ -222,6 +245,7 @@ while True:
                             flow_filtered_air_plot = [0]
                             flow_filtered_expi_plot = [0]
                             flow_filtered_O2_plot = [0]
+                            flow_filtered_plot = [0]
                             vol_l_plot = [0]
                         if (select == 0): 
                             wintitle = '[Ppeak: {:d}]'
@@ -250,8 +274,8 @@ while True:
                         else: 
                             wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
                             win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
-                        plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
-                        plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
+                        if debug: plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
+                        if debug: plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(dt)
@@ -272,6 +296,7 @@ while True:
                         flow_filtered_air_plot.append(flow_filtered_air)
                         flow_filtered_expi_plot.append(flow_filtered_expi)
                         flow_filtered_O2_plot.append(flow_filtered_O2)
+                        flow_filtered_plot.append(flow_filtered)
                         vol_l_plot.append(100.0*vol_l)
                         if (t_plot[-1]-t_plot[0] > 2*scalex):
                             t_plot.pop(0)
@@ -292,6 +317,7 @@ while True:
                             flow_filtered_air_plot.pop(0)
                             flow_filtered_expi_plot.pop(0)
                             flow_filtered_O2_plot.pop(0)
+                            flow_filtered_plot.pop(0)
                             vol_l_plot.pop(0)
                     except ValueError: 
                         time.sleep(delay)
@@ -303,22 +329,23 @@ while True:
         file.seek(0, os.SEEK_END) # Might be necessary on recent versions of Linux, see https://lists.gnu.org/archive/html/info-gnu/2018-08/msg00000.html...
    
     c_p_cmh2o.setData(t_plot, p_cmh2o_plot)
-    c_p_e_cmh2o.setData(t_plot, p_e_cmh2o_plot)
+    if debug: c_p_e_cmh2o.setData(t_plot, p_e_cmh2o_plot)
     c_Ppeak.setData(t_plot, Ppeak_plot)
     c_PEEP.setData(t_plot, PEEP_plot)
-    c_flow_control_air.setData(t_plot, flow_control_air_plot)
-    c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
-    c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
-    c_valve_air.setData(t_plot, valve_air_plot)
-    c_valve_O2.setData(t_plot, valve_O2_plot)
-    c_valve_inspi.setData(t_plot, valve_inspi_plot)
-    c_valve_expi.setData(t_plot, valve_expi_plot)
-    c_flow_air.setData(t_plot, flow_air_plot)
-    c_flow_expi.setData(t_plot, flow_expi_plot)
-    c_flow_O2.setData(t_plot, flow_O2_plot)
-    c_flow_filtered_air.setData(t_plot, flow_filtered_air_plot)
-    c_flow_filtered_expi.setData(t_plot, flow_filtered_expi_plot)
-    c_flow_filtered_O2.setData(t_plot, flow_filtered_O2_plot)
+    if debug: c_flow_control_air.setData(t_plot, flow_control_air_plot)
+    if debug: c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
+    if debug: c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
+    if debug: c_valve_air.setData(t_plot, valve_air_plot)
+    if debug: c_valve_O2.setData(t_plot, valve_O2_plot)
+    if debug: c_valve_inspi.setData(t_plot, valve_inspi_plot)
+    if debug: c_valve_expi.setData(t_plot, valve_expi_plot)
+    if debug: c_flow_air.setData(t_plot, flow_air_plot)
+    if debug: c_flow_expi.setData(t_plot, flow_expi_plot)
+    if debug: c_flow_O2.setData(t_plot, flow_O2_plot)
+    if debug: c_flow_filtered_air.setData(t_plot, flow_filtered_air_plot)
+    if debug: c_flow_filtered_expi.setData(t_plot, flow_filtered_expi_plot)
+    if debug: c_flow_filtered_O2.setData(t_plot, flow_filtered_O2_plot)
+    if not debug: c_flow_filtered.setData(t_plot, flow_filtered_plot)
     c_vol_l.setData(t_plot, vol_l_plot)
 
     pg.QtGui.QApplication.processEvents()
