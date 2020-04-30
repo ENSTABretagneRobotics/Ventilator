@@ -48,12 +48,12 @@ from timeit import default_timer as timer
 ###############################################################################
 Ppeak = 30 # In mbar (= approx. cmH2O)
 PEEP = 5 # In mbar (= approx. cmH2O)
-respi_rate = 10 # In breaths/min
+respi_rate = 20 # In breaths/min
 inspi_ratio = 0.3
-flow_control_air = 60 # In L/min, >= flow_control_air_max means no limit...
-flow_control_O2 = 0 # In L/min, >= flow_control_O2_max means no limit...
+flow_control_air = 20 # In L/min, >= flow_control_air_max means no limit...
+flow_control_O2 = 20 # In L/min, >= flow_control_O2_max means no limit...
 flow_control_expi = 0 # In L/min, >= flow_control_expi_max means no limit, <= 0 means no depress...
-mode = 0 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
+mode = 1 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
 # Advanced parameters
 # Trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
@@ -90,7 +90,7 @@ disable_hard_pwm = False
 enable_p_ms5837 = False
 enable_p0_ms5837 = False
 enable_p_inspi_hsc = True
-enable_p_expi_hsc = False
+enable_p_expi_hsc = True
 enable_air_rsc = True
 enable_expi_rsc = True
 enable_O2_rsc = True
@@ -102,6 +102,7 @@ R1_expi = 0.019100/2.0 # In m
 #R1_expi = 0.009000/2.0 # In m
 R2_expi = 0.011651/2.0 # In m
 #R2_expi = 0.006500/2.0 # In m
+#R2_expi = 0.008000/2.0 # In m
 #R1_O2 = 0.019100/2.0 # In m
 R1_O2 = 0.009000/2.0 # In m
 #R2_O2 = 0.011651/2.0 # In m
@@ -121,17 +122,19 @@ valves_pwm_freq = 800 # In Hz
 valves_init = 50
 valves_closed = 10
 valves_delay = 0.020 # In s
-inspi_detection_delay = 0.25 # In s
+hist_duration = 0.25 # Should be < inspi_detection_delay, in s
+inspi_detection_delay = 0.25 # Should be > hist_duration, in s
+vol_inspi_detection_delta = 0.015 # In L
 PEEP_inspi_detection_delta = 2.5 # Should be > PEEP_err, in mbar (= approx. cmH2O)
 PEEP_err = 2.0 # Should be < PEEP_inspi_detection_delta, in mbar (= approx. cmH2O)
 P_err = 50 # 7.5 # In mbar (= approx. cmH2O)
 P_absolute_min = -30 # In mbar (= approx. cmH2O)
 P_absolute_max = 130 # In mbar (= approx. cmH2O)
 coef_offset_filter_flow = 0.99
-coef_filter_flow = 0.3
+coef_filter_flow = 0.0
 flow_thresh = 5 # In L/min
-flow_PEEP_control_air = 30 # 10 # In L/min
-flow_PEEP_control_O2 = 0 # 10 # In L/min
+flow_PEEP_control_air = 20 # 10 # In L/min
+flow_PEEP_control_O2 = 20 # 10 # In L/min
 valve_pressure_PEEP_control_expi_coef = 4.0
 valve_pressure_PEEP_excess_control_air_coef = 16.0
 valve_pressure_PEEP_excess_control_O2_coef = 16.0
@@ -142,7 +145,7 @@ valve_pressure_excess_control_air_coef = 16.0
 valve_pressure_excess_control_O2_coef = 16.0
 valve_flow_control_air_coef = 2.0
 valve_flow_control_O2_coef = 2.0
-debug = True
+debug = False
 ###############################################################################
 
 GPIO.setwarnings(False)	
@@ -168,11 +171,17 @@ if enable_pigpio:
 valve_air_pin = 12
 if (flow_control_air < flow_control_air_max): valve_air_val_max = valves_init # Min > 0 to not always disable proportional valves control...
 else: valve_air_val_max = 100
+if (flow_PEEP_control_air > 0): valve_air_val_max_PEEP = valves_init
+else: valve_air_val_max_PEEP = 100
+if (flow_control_expi < flow_control_expi_max):valve_air_val_max_depress = valves_init
+else: valve_air_val_max_depress = 100
 valve_air_val = 0
 valve_air_val = min(100, max(0, valve_air_val))
 valve_O2_pin = 13
 if (flow_control_O2 < flow_control_O2_max): valve_O2_val_max = valves_init # Min > 0 to not always disable proportional valves control...
 else: valve_O2_val_max = 100
+if (flow_PEEP_control_O2 > 0): valve_O2_val_max_PEEP = valves_init
+else: valve_O2_val_max_PEEP = 100
 valve_O2_val = 0
 valve_O2_val = min(100, max(0, valve_O2_val))
 if enable_pigpio:
@@ -206,6 +215,7 @@ valve_inspi_pin = 6
 valve_inspi_val = GPIO.LOW
 GPIO.setup(valve_inspi_pin, GPIO.OUT, initial = valve_inspi_val)
 valve_expi_pin = 0
+valve_expi_val_max_PEEP = 100
 valve_expi_val = 0
 valve_expi_val = min(100, max(0, valve_expi_val))
 if enable_pigpio:
@@ -492,6 +502,9 @@ inspi_duration_estim = inspi_duration
 expi_duration_estim = expi_duration
 cycle_duration_estim = cycle_duration
 force_new_cycle = False
+t_hist = []
+flow_hist = []
+vol_hist = []
 
 t_last_not_all_valves_closed = t0
 t_all_valves_closed = t0
@@ -540,46 +553,47 @@ while True:
         #else: pwm1_ns = pwm1_ns_min
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
-        if Ppeak_reached: # Initialization for flow_control_expi later...
-            valve_air_val = valves_init
         Ppeak_reached = False
         if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close valves to maintain PEEP...
-            if not PEEP_reached: # Initialization for PEEP control later...
+            if not PEEP_reached:
                 t_PEEP_reached = t
-                valve_air_val = valves_init
-                valve_O2_val = valves_init
-                valve_expi_val = 100
             PEEP_reached = True
-            if (((flow_PEEP_control_air <= 0) and (flow_PEEP_control_O2 <= 0)) or ((mode == 1) and (t-t_PEEP_reached > inspi_detection_delay))):
+            if ((flow_PEEP_control_air <= 0) and (flow_PEEP_control_O2 <= 0)):
                 valve_air_val = 0
                 valve_O2_val = 0
                 valve_inspi_val = GPIO.LOW
                 valve_expi_val = 0
-                if ((mode == 1) and (p-p0 < PEEP-PEEP_inspi_detection_delta)): # Attempt to detect inspiration in assist mode...
+                if ((mode == 1) and (t-t_PEEP_reached > inspi_detection_delay) and (p-p0 < PEEP-PEEP_inspi_detection_delta)): # Attempt to detect inspiration in assist mode...
                     force_new_cycle = True
-                    print('Inspiration detected')
+                    print('Inspiration detected at t=%f s' % (t-t0))
             else:
+                if ((mode == 1) and (t-t_PEEP_reached > inspi_detection_delay) and (len(t_hist) > 0) and (vol_hist[-1]-vol_hist[0] > vol_inspi_detection_delta/1000.0)): # Attempt to detect inspiration in assist mode...
+                    force_new_cycle = True
+                    print('Inspiration detected at t=%f s' % (t-t0))
                 valve_inspi_val = GPIO.HIGH
                 err_pressure_PEEP = (p-p0)-PEEP
-                valve_expi_val = max(0, min(100, valve_expi_val+valve_pressure_PEEP_control_expi_coef*dt*err_pressure_PEEP))
+                valve_expi_val_max_PEEP = max(1, min(100, valve_expi_val_max_PEEP+valve_pressure_PEEP_control_expi_coef*dt*err_pressure_PEEP))
+                valve_expi_val = valve_expi_val_max_PEEP
             if (flow_PEEP_control_air > 0):
                 err_pressure_PEEP_excess = (p-p0)-PEEP
                 if (err_pressure_PEEP_excess > 0): # Control to limit the flow to stay below PEEP
-                    valve_air_val = max(1, min(100, valve_air_val-valve_pressure_PEEP_excess_control_air_coef*(flow_PEEP_control_air/float(flow_control_air_max))*dt*err_pressure_PEEP_excess)) # Min > 0 to not always disable proportional valves control...
+                    valve_air_val_max_PEEP = max(1, min(100, valve_air_val_max_PEEP-valve_pressure_PEEP_excess_control_air_coef*(flow_PEEP_control_air/float(flow_control_air_max))*dt*err_pressure_PEEP_excess)) # Min > 0 to not always disable proportional valves control...
                 else:
                     err_flow_PEEP_air = flow_PEEP_control_air-flow_filtered_air*60000.0
                     if ((err_flow_PEEP_air < 0) or (t-t_valve_air_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
-                        valve_air_val = max(0, min(100, valve_air_val+valve_flow_PEEP_control_air_coef*dt*err_flow_PEEP_air))
+                        valve_air_val_max_PEEP = max(1, min(100, valve_air_val_max_PEEP+valve_flow_PEEP_control_air_coef*dt*err_flow_PEEP_air)) # Min > 0 to not always disable proportional valves control...
+                valve_air_val = valve_air_val_max_PEEP
             else:
                 valve_air_val = 0
             if (flow_PEEP_control_O2 > 0):
                 err_pressure_PEEP_excess = (p-p0)-PEEP
                 if (err_pressure_PEEP_excess > 0): # Control to limit the flow to stay below PEEP
-                    valve_O2_val = max(1, min(100, valve_O2_val-valve_pressure_PEEP_excess_control_O2_coef*(flow_PEEP_control_O2/float(flow_control_O2_max))*dt*err_pressure_PEEP_excess)) # Min > 0 to not always disable proportional valves control...
+                    valve_O2_val_max_PEEP = max(1, min(100, valve_O2_val_max_PEEP-valve_pressure_PEEP_excess_control_O2_coef*(flow_PEEP_control_O2/float(flow_control_O2_max))*dt*err_pressure_PEEP_excess)) # Min > 0 to not always disable proportional valves control...
                 else:
                     err_flow_PEEP_O2 = flow_PEEP_control_O2-flow_filtered_O2*60000.0
                     if ((err_flow_PEEP_O2 < 0) or (t-t_valve_O2_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
-                        valve_O2_val = max(0, min(100, valve_O2_val+valve_flow_PEEP_control_O2_coef*dt*err_flow_PEEP_O2))
+                        valve_O2_val_max_PEEP = max(1, min(100, valve_O2_val_max_PEEP+valve_flow_PEEP_control_O2_coef*dt*err_flow_PEEP_O2)) # Min > 0 to not always disable proportional valves control...
+                valve_O2_val = valve_O2_val_max_PEEP
             else:
                 valve_O2_val = 0
         else:
@@ -589,7 +603,8 @@ while True:
                 elif (flow_control_expi < flow_control_expi_max): # Ensure it does not depress too fast...
                     err_flow_expi = flow_control_expi-flow_filtered_expi*60000.0
                     if ((err_flow_expi < 0) or (t-t_valve_air_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
-                        valve_air_val = max(0, min(100, valve_air_val+valve_depress_flow_control_expi_coef*dt*err_flow_expi))
+                        valve_air_val_max_depress = max(1, min(100, valve_air_val_max_depress+valve_depress_flow_control_expi_coef*dt*err_flow_expi)) # Min > 0 to not always disable proportional valves control...
+                        valve_air_val = valve_air_val_max_depress
                 else:
                     valve_air_val = 100 # Full to depress...
             else: 
@@ -933,6 +948,13 @@ while True:
         t-t0, dt, p0, temperature0, p, temperature, pressure_air, pressure_offset_air, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2)) 
     
     # Prepare next loop...
+    t_hist.append(t)
+    flow_hist.append(flow_filtered_air+flow_filtered_O2+flow_filtered_expi)
+    vol_hist.append(vol_air+vol_O2+vol_expi)
+    while ((len(t_hist) > 0) and (t-t_hist[0] > hist_duration)): 
+        t_hist.pop(0)
+        flow_hist.pop(0)
+        vol_hist.pop(0)
     t_prev = t
     t = timer()
     dt = t-t_prev
