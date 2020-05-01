@@ -18,11 +18,10 @@ scaley = 50
 offsety = 30
 scale2y = 100
 offset2y = 20
-pifullscreen = True
 debug = False
 ###############################################################################
 
-nb_cols = 43 # Not counting the final '\n'
+nb_cols = 44 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -71,7 +70,7 @@ def keyPressed(evt):
 #win = pg.GraphicsWindow()
 win = GUIWindow()
 win.sigKeyPress.connect(keyPressed)
-if pifullscreen:
+if not debug:
     win.move(-10, -5)
     win.resize(808, 463)
 else:
@@ -220,6 +219,8 @@ while (bExit != 1):
                         index = index+1
                         inspi_detection_delta_duration = float(cols[index])
                         index = index+1
+                        flow_thresh = float(cols[index])
+                        index = index+1
                         index = index+1
                         index = index+1
                         valve_air = float(cols[index])
@@ -314,7 +315,7 @@ while (bExit != 1):
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
                         elif (select == 8): 
-                            wintitle = '[PEEP dec. rate: {:d}%]'
+                            wintitle = '[PEEP dec.: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(PEEP_dec_rate)))
                         elif (select == 9): 
                             wintitle = '[Fl_PEEP: {:d}%]'
@@ -323,18 +324,21 @@ while (bExit != 1):
                             wintitle = '[PEEP I delta: {:.1f}]'
                             win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
                         elif (select == 11): 
-                            wintitle = '[Vol I delta: {:d}mL]'
+                            wintitle = '[Vol. I delta: {:d}mL]'
                             win.setWindowTitle(wintitle.format(int(vol_inspi_detection_delta)))
                         elif (select == 12): 
                             wintitle = '[I delta: {:d}ms]'
                             win.setWindowTitle(wintitle.format(int(inspi_detection_delta_duration)))
+                        elif (select == 13): 
+                            wintitle = '[Fl. th.: {:.2f}]'
+                            win.setWindowTitle(wintitle.format(flow_thresh))
                         else: 
                             if ((t_t0) % 10 > 5): # Alternate text displayed
                                 wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
                                 win.setWindowTitle(wintitle.format(int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
                             else:
-                                wintitle = 'PEEP dec. rate: {:d}%, Fl. PEEP: {:d}%, PEEP I delta: {:.1f}, Vol I delta: {:d}mL, I delta: {:d}ms'
-                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration)))
+                                wintitle = 'PEEP dec.: {:d}%, Fl. PEEP: {:d}%, PEEP I delta: {:.1f}, Vol. I delta: {:d}mL, I delta: {:d}ms, Fl. th.: {:.2f}'
+                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
                         if debug: plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
                         if debug: plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 

@@ -62,6 +62,7 @@ Fl_PEEP = 100 # In % of flow_control_air and flow_control_O2, to help detecting 
 PEEP_inspi_detection_delta = 2.5 # In mbar (= approx. cmH2O)
 vol_inspi_detection_delta = 15 # In ml
 inspi_detection_delta_duration = 250 # In ms
+flow_thresh = 4 # To avoid noise in volume computation, in L/min
 # Advanced parameters
 # Trim PWM value start, end depending on balloon size...
 pwm0_ns_min = 1000000
@@ -107,6 +108,9 @@ vol_inspi_detection_delta_max = 100
 inspi_detection_delta_duration_step = 10
 inspi_detection_delta_duration_min = 0
 inspi_detection_delta_duration_max = 1000
+flow_thresh_step = 0.25
+flow_thresh_min = 0
+flow_thresh_max = 50
 enable_pigpio = True
 enable_buzzer = True
 disable_hard_pwm = False
@@ -151,7 +155,6 @@ P_absolute_min = -5 # In mbar (= approx. cmH2O)
 P_absolute_max = 150 # In mbar (= approx. cmH2O)
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.0
-flow_thresh = 5 # In L/min
 valve_pressure_PEEP_control_expi_coef = 1.0
 valve_pressure_PEEP_excess_control_air_coef = 16.0
 valve_pressure_PEEP_excess_control_O2_coef = 16.0
@@ -247,7 +250,7 @@ else:
 # Digital inputs (buttons)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
 parameters = ['Ppeak', 'PEEP', 'respi_rate', 'inspi_ratio', 'flow_control_air', 'flow_control_O2', 'flow_control_expi', 'mode', 
-              'PEEP_dec_rate', 'Fl_PEEP', 'PEEP_inspi_detection_delta', 'vol_inspi_detection_delta', 'inspi_detection_delta_duration']
+              'PEEP_dec_rate', 'Fl_PEEP', 'PEEP_inspi_detection_delta', 'vol_inspi_detection_delta', 'inspi_detection_delta_duration', 'flow_thresh']
 select_button_pin = 24
 GPIO.setup(select_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 select_button_val = GPIO.input(select_button_pin)
@@ -530,7 +533,7 @@ t_valve_expi_closed = t0
 # File errors are not critical...
 try:
     file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);p_e (in mbar);temperature_e (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;flow_control_air (in L/min);flow_control_O2 (in L/min);flow_control_expi (in L/min);mode;PEEP_dec_rate (in %);Fl_PEEP (in %);PEEP_inspi_detection_delta (in mbar);vol_inspi_detection_delta (in ml);inspi_detection_delta_duration (in ms);pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);p_e (in mbar);temperature_e (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;flow_control_air (in L/min);flow_control_O2 (in L/min);flow_control_expi (in L/min);mode;PEEP_dec_rate (in %);Fl_PEEP (in %);PEEP_inspi_detection_delta (in mbar);vol_inspi_detection_delta (in ml);inspi_detection_delta_duration (in ms);flow_thresh (in L/min);pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
 except:
     pass
 
@@ -747,6 +750,9 @@ while True:
                 if (select == 12):
                     inspi_detection_delta_duration = inspi_detection_delta_duration + inspi_detection_delta_duration_step
                     if (inspi_detection_delta_duration > inspi_detection_delta_duration_max): inspi_detection_delta_duration = inspi_detection_delta_duration_max
+                if (select == 13):
+                    flow_thresh = flow_thresh + flow_thresh_step
+                    if (flow_thresh > flow_thresh_max): flow_thresh = flow_thresh_max
         down_button_val = GPIO.input(down_button_pin)
         if (down_button_val != down_button_val_prev):
             down_button_val_prev = down_button_val
@@ -790,6 +796,9 @@ while True:
                 if (select == 12):
                     inspi_detection_delta_duration = inspi_detection_delta_duration - inspi_detection_delta_duration_step
                     if (inspi_detection_delta_duration < inspi_detection_delta_duration_min): inspi_detection_delta_duration = inspi_detection_delta_duration_min
+                if (select == 13):
+                    flow_thresh = flow_thresh - flow_thresh_step
+                    if (flow_thresh < flow_thresh_min): flow_thresh = flow_thresh_min
  
     # Sensors
     if enable_air_rsc: 
@@ -1004,9 +1013,9 @@ while True:
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
         file.write(line.format(t, t0, p0, temperature0, p, temperature, p_e, temperature_e, select, Ppeak, PEEP, respi_rate, inspi_ratio, flow_control_air, flow_control_O2, flow_control_expi, mode, 
-                               PEEP_dec_rate, Fl_PEEP, PEEP_inspi_detection_delta, vol_inspi_detection_delta, inspi_detection_delta_duration, 
+                               PEEP_dec_rate, Fl_PEEP, PEEP_inspi_detection_delta, vol_inspi_detection_delta, inspi_detection_delta_duration, flow_thresh, 
                                pwm0_ns, pwm1_ns, valve_air_val, valve_O2_val, valve_inspi_val, valve_expi_val, 
                                pressure_air, pressure_expi, pressure_O2, temperature_air, temperature_expi, temperature_O2, 
                                flow_air*60000.0, flow_expi*60000.0, flow_O2*60000.0, flow_filtered_air*60000.0, flow_filtered_expi*60000.0, flow_filtered_O2*60000.0, vol_air*1000.0, vol_expi*1000.0, vol_O2*1000.0))
