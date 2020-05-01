@@ -61,72 +61,105 @@ class GUIWindow(pg.GraphicsWindow):
 
 def keyPressed(evt):
     # Global variables to share with other functions.
-    global bExit
+    global bExit, debug
     #print("Key pressed")
     #print(evt.key())
     if evt.key() == QtCore.Qt.Key_Escape:
         bExit = 1
+    if evt.key() == QtCore.Qt.Key_D:
+        debug = not debug
 
 #win = pg.GraphicsWindow()
 win = GUIWindow()
 win.sigKeyPress.connect(keyPressed)
-if not debug:
-    win.move(-10, -5)
-    win.resize(808, 463)
-else:
+win.setWindowTitle('Pressure, flow, volume')
+plt = win.addPlot(row = 0, col = 0)
+plt2 = win.addPlot(row = 0, col = 1)
+plt3 = win.addPlot(row = 0, col = 2)
+plt4 = win.addPlot(row = 1, col = 2)
+plt5 = win.addPlot(row = 2, col = 2)
+plt6 = win.addPlot(row = 3, col = 2)
+if debug: 
     win.move(0, 0)
     win.resize(800, 420)
-win.setWindowTitle('Pressure, flow, volume')
-if debug:
-    plt = win.addPlot()
-    plt2 = win.addPlot()
-else: 
-    plt = win.addPlot(row = 0, col = 0)
-    plt2 = win.addPlot(row = 1, col = 0)
-    plt3 = win.addPlot(row = 2, col = 0)
+    plt.show()
+    plt2.show()
+    plt3.hide()
+    plt4.hide()
+    plt5.hide()
+else:
+    # Unexpected coordinates...
+    win.move(-10, -10)
+    win.resize(808, 474)
+    plt.hide()
+    plt2.hide()
+    plt3.show()
+    plt4.show()
+    plt5.show()
+plt6.hide()
 plt.showGrid(x = True, y = True)
 plt2.showGrid(x = True, y = True)
-if not debug: plt3.showGrid(x = True, y = True)
-if debug: plt.setTitle('Temp. I: 25.00 C, Temp. E: 25.00 C', **{'color': '#FFFFFF', 'size': '10pt'})
-if debug: plt2.setTitle('Temp. A: 25.00 C, Temp. E: 25.00 C, Temp. O: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
+plt3.showGrid(x = True, y = True)
+plt4.showGrid(x = True, y = True)
+plt5.showGrid(x = True, y = True)
+plt6.showGrid(x = True, y = True)
+plt.setTitle('Temp. I: 25.00 C, Temp. E: 25.00 C', **{'color': '#FFFFFF', 'size': '10pt'})
+plt2.setTitle('Temp. A: 25.00 C, Temp. E: 25.00 C, Temp. O: 25.00 C', **{'color': '#FFF', 'size': '10pt'})
 plt.setLabel('left', 'Pressure (in cmH2O)', **{'color': '#FFFFFF', 'font-size': '10pt'})
 plt2.setLabel('left', 'Flow (in L/min)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-if debug: plt2.setLabel('right', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-else: plt3.setLabel('left', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-if debug: plt.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
-if debug: plt2.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt2.setLabel('right', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt3.setLabel('left', 'Pressure (in cmH2O)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt4.setLabel('left', 'Flow (in L/min)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt5.setLabel('left', 'Volume (in cl)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt6.setLabel('left', 'Flow (in L/min)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
+plt2.setLabel('bottom', 'Time (in s)', **{'color': '#FFFFFF', 'font-size': '10pt'})
 plt.addLegend(size = (0, 0), offset = (4, 1))
 plt2.addLegend(size = (0, 0), offset = (4, 1))
-if not debug: plt3.addLegend(size = (0, 0), offset = (4, 1))
+plt3.addLegend(size = (0, 0), offset = (4, 1))
+plt4.addLegend(size = (0, 0), offset = (4, 1))
+plt5.addLegend(size = (0, 0), offset = (4, 1))
+plt6.addLegend(size = (0, 0), offset = (4, 1))
 font = QtGui.QFont()
 font.setPixelSize(11)
 plt.getAxis('left').tickFont = font
 plt2.getAxis('left').tickFont = font
 plt2.getAxis('right').tickFont = font
-if not debug: plt3.getAxis('left').tickFont = font
+plt3.getAxis('left').tickFont = font
+plt4.getAxis('left').tickFont = font
+plt5.getAxis('left').tickFont = font
+plt6.getAxis('left').tickFont = font
 plt.getAxis('bottom').tickFont = font
 plt2.getAxis('bottom').tickFont = font
-if not debug: plt3.getAxis('bottom').tickFont = font
+plt3.getAxis('bottom').tickFont = font
+plt4.getAxis('bottom').tickFont = font
+plt5.getAxis('bottom').tickFont = font
+plt6.getAxis('bottom').tickFont = font
 c_p_cmh2o = plt.plot(t_plot, p_cmh2o_plot, pen = '#FFFF00', name = 'Inspi. pres.')
-if debug: c_p_e_cmh2o = plt.plot(t_plot, p_e_cmh2o_plot, pen = '#FFA500', name = 'Expi. pres.')
+c2_p_cmh2o = plt3.plot(t_plot, p_cmh2o_plot, pen = '#FFFF00', name = 'Inspi. pres.')
+c_p_e_cmh2o = plt.plot(t_plot, p_e_cmh2o_plot, pen = '#FFA500', name = 'Expi. pres.')
 c_Ppeak = plt.plot(t_plot, Ppeak_plot, pen = '#FFFFFF')
+c2_Ppeak = plt3.plot(t_plot, Ppeak_plot, pen = '#FFFFFF')
 c_PEEP = plt.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
-if debug: c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
-if debug: c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
-if debug: c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
-if debug: c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
-if debug: c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
-if debug: c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
-if debug: c_valve_expi = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
-if debug: c_flow_air = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
-if debug: c_flow_expi = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
-if debug: c_flow_O2 = plt2.plot(t_plot, flow_O2_plot, pen = '#003030')
-if debug: c_flow_filtered_air = plt2.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
-if debug: c_flow_filtered_expi = plt2.plot(t_plot, flow_filtered_expi_plot, pen = '#FF0000', name = 'Expi. flow')
-if debug: c_flow_filtered_O2 = plt2.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
-if not debug: c_flow_filtered = plt2.plot(t_plot, flow_filtered_plot, pen = '#FF0000', name = 'Flow')
-if debug: c_vol_l = plt2.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
-else: c_vol_l = plt3.plot(t_plot, vol_l_plot, pen = '#00FF00', name = 'Volume')
+c2_PEEP = plt3.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
+c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
+c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
+c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
+c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
+c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
+c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
+c_valve_expi = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
+c_flow_air = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
+c_flow_expi = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
+c_flow_O2 = plt2.plot(t_plot, flow_O2_plot, pen = '#003030')
+c_flow_filtered_air = plt2.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
+c2_flow_filtered_air = plt6.plot(t_plot, flow_filtered_air_plot, pen = '#00FF00', name = 'Air flow')
+c_flow_filtered_expi = plt2.plot(t_plot, flow_filtered_expi_plot, pen = '#FF0000', name = 'Expi. flow')
+c_flow_filtered_O2 = plt2.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
+c2_flow_filtered_O2 = plt6.plot(t_plot, flow_filtered_O2_plot, pen = '#0000FF', name = 'O2 flow')
+c_flow_filtered = plt4.plot(t_plot, flow_filtered_plot, pen = '#FF0000', name = 'Flow')
+c_vol_l = plt2.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
+c2_vol_l = plt5.plot(t_plot, vol_l_plot, pen = '#FF00FF', name = 'Volume')
 for item in plt.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
@@ -135,20 +168,36 @@ for item in plt2.legend.items:
     for single_item in item:
         if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
             single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
-if not debug: 
-    for item in plt3.legend.items:
-        for single_item in item:
-            if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
-                single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
+for item in plt3.legend.items:
+    for single_item in item:
+        if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
+            single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
+for item in plt4.legend.items:
+    for single_item in item:
+        if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
+            single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
+for item in plt5.legend.items:
+    for single_item in item:
+        if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
+            single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
+for item in plt6.legend.items:
+    for single_item in item:
+        if isinstance(single_item, pg.graphicsItems.LabelItem.LabelItem):
+            single_item.setText(single_item.text, **{'color': '#FFFFFF', 'size': '10pt'})
 if (scaley != 0): 
     plt.enableAutoRange('y', False)
     plt.setYRange(-scaley+offsety, scaley+offsety, 0)
+    plt3.enableAutoRange('y', False)
+    plt3.setYRange(-scaley+offsety, scaley+offsety, 0)
 if (scale2y != 0): 
     plt2.enableAutoRange('y', False)
     plt2.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
-    if not debug: 
-        plt3.enableAutoRange('y', False)
-        plt3.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    plt4.enableAutoRange('y', False)
+    plt4.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    plt5.enableAutoRange('y', False)
+    plt5.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    plt6.enableAutoRange('y', False)
+    plt6.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
 
 # Waiting for the file to be created...
 while True:
@@ -315,13 +364,13 @@ while (bExit != 1):
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
                         elif (select == 8): 
-                            wintitle = '[PEEP dec.: {:d}%]'
+                            wintitle = '[PE dec.: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(PEEP_dec_rate)))
                         elif (select == 9): 
-                            wintitle = '[Fl_PEEP: {:d}%]'
+                            wintitle = '[Fl_PE: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(Fl_PEEP)))
                         elif (select == 10): 
-                            wintitle = '[PEEP I delta: {:.1f}]'
+                            wintitle = '[PE I delta: {:.1f}]'
                             win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
                         elif (select == 11): 
                             wintitle = '[Vol. I delta: {:d}mL]'
@@ -337,10 +386,34 @@ while (bExit != 1):
                                 wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
                                 win.setWindowTitle(wintitle.format(int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
                             else:
-                                wintitle = 'PEEP dec.: {:d}%, Fl. PEEP: {:d}%, PEEP I delta: {:.1f}, Vol. I delta: {:d}mL, I delta: {:d}ms, Fl. th.: {:.2f}'
+                                wintitle = 'PE dec.: {:d}%, Fl. PE: {:d}%, PE I delta: {:.1f}, Vol. I delta: {:d}mL, I delta: {:d}ms, Fl. th.: {:.2f}'
                                 win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
-                        if debug: plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
-                        if debug: plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
+                        if debug: 
+                            win.move(-4, 4)
+                            win.resize(800, 420)
+                            plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
+                            plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
+                            plt.show()
+                            plt2.show()
+                            plt3.hide()
+                            plt4.hide()
+                            plt5.hide()
+                            plt6.hide()
+                        else:
+                            win.move(-10, -32)
+                            win.resize(808, 452)
+                            plt.hide()
+                            plt2.hide()
+                            plt3.show()
+                            if (mode == 2): 
+                                plt4.hide()
+                                plt5.hide()
+                                plt6.show()
+                            else:
+                                plt4.show()
+                                plt5.show()
+                                plt6.hide()
+
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
                         t_plot.append(t_t0)
@@ -394,24 +467,30 @@ while (bExit != 1):
         file.seek(0, os.SEEK_END) # Might be necessary on recent versions of Linux, see https://lists.gnu.org/archive/html/info-gnu/2018-08/msg00000.html...
    
     c_p_cmh2o.setData(t_plot, p_cmh2o_plot)
-    if debug: c_p_e_cmh2o.setData(t_plot, p_e_cmh2o_plot)
+    c2_p_cmh2o.setData(t_plot, p_cmh2o_plot)
+    c_p_e_cmh2o.setData(t_plot, p_e_cmh2o_plot)
     c_Ppeak.setData(t_plot, Ppeak_plot)
+    c2_Ppeak.setData(t_plot, Ppeak_plot)
     c_PEEP.setData(t_plot, PEEP_plot)
-    if debug: c_flow_control_air.setData(t_plot, flow_control_air_plot)
-    if debug: c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
-    if debug: c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
-    if debug: c_valve_air.setData(t_plot, valve_air_plot)
-    if debug: c_valve_O2.setData(t_plot, valve_O2_plot)
-    if debug: c_valve_inspi.setData(t_plot, valve_inspi_plot)
-    if debug: c_valve_expi.setData(t_plot, valve_expi_plot)
-    if debug: c_flow_air.setData(t_plot, flow_air_plot)
-    if debug: c_flow_expi.setData(t_plot, flow_expi_plot)
-    if debug: c_flow_O2.setData(t_plot, flow_O2_plot)
-    if debug: c_flow_filtered_air.setData(t_plot, flow_filtered_air_plot)
-    if debug: c_flow_filtered_expi.setData(t_plot, flow_filtered_expi_plot)
-    if debug: c_flow_filtered_O2.setData(t_plot, flow_filtered_O2_plot)
-    if not debug: c_flow_filtered.setData(t_plot, flow_filtered_plot)
+    c2_PEEP.setData(t_plot, PEEP_plot)
+    c_flow_control_air.setData(t_plot, flow_control_air_plot)
+    c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
+    c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
+    c_valve_air.setData(t_plot, valve_air_plot)
+    c_valve_O2.setData(t_plot, valve_O2_plot)
+    c_valve_inspi.setData(t_plot, valve_inspi_plot)
+    c_valve_expi.setData(t_plot, valve_expi_plot)
+    c_flow_air.setData(t_plot, flow_air_plot)
+    c_flow_expi.setData(t_plot, flow_expi_plot)
+    c_flow_O2.setData(t_plot, flow_O2_plot)
+    c_flow_filtered_air.setData(t_plot, flow_filtered_air_plot)
+    c2_flow_filtered_air.setData(t_plot, flow_filtered_air_plot)
+    c_flow_filtered_expi.setData(t_plot, flow_filtered_expi_plot)
+    c_flow_filtered_O2.setData(t_plot, flow_filtered_O2_plot)
+    c2_flow_filtered_O2.setData(t_plot, flow_filtered_O2_plot)
+    c_flow_filtered.setData(t_plot, flow_filtered_plot)
     c_vol_l.setData(t_plot, vol_l_plot)
+    c2_vol_l.setData(t_plot, vol_l_plot)
 
     pg.QtGui.QApplication.processEvents()
 
