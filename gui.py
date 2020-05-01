@@ -1,4 +1,6 @@
 #!/usr/bin/python
+
+from __future__ import division
 import math
 import sys
 import os
@@ -16,10 +18,11 @@ scaley = 50
 offsety = 30
 scale2y = 100
 offset2y = 20
+pifullscreen = True
 debug = False
 ###############################################################################
 
-nb_cols = 38 # Not counting the final '\n'
+nb_cols = 43 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -43,9 +46,37 @@ flow_filtered_O2_plot = [0]
 flow_filtered_plot = [0]
 vol_l_plot = [0]
 
-win = pg.GraphicsWindow()
-win.move(0, 0)
-win.resize(800, 420)
+class GUIWindow(pg.GraphicsWindow):
+    sigKeyPress = QtCore.pyqtSignal(object)
+
+    def keyPressEvent(self, ev):
+        self.scene().keyPressEvent(ev)
+        self.sigKeyPress.emit(ev)
+
+    def closeEvent(self, ev):
+        # Global variables to share with other functions.
+        global bExit
+        #ev.ignore()
+        ev.accept() # let the window close
+        bExit = 1
+
+def keyPressed(evt):
+    # Global variables to share with other functions.
+    global bExit
+    #print("Key pressed")
+    #print(evt.key())
+    if evt.key() == QtCore.Qt.Key_Escape:
+        bExit = 1
+
+#win = pg.GraphicsWindow()
+win = GUIWindow()
+win.sigKeyPress.connect(keyPressed)
+if pifullscreen:
+    win.move(-10, -5)
+    win.resize(808, 463)
+else:
+    win.move(0, 0)
+    win.resize(800, 420)
 win.setWindowTitle('Pressure, flow, volume')
 if debug:
     plt = win.addPlot()
@@ -131,8 +162,9 @@ while True:
 
 file.seek(0, os.SEEK_END)
 
+bExit = 0
 #count = 0
-while True:
+while (bExit != 1):
     start_time = time.time()
 
     try:
@@ -178,6 +210,16 @@ while True:
                         index = index+1
                         mode = float(cols[index])
                         index = index+1
+                        PEEP_dec_rate = float(cols[index])
+                        index = index+1
+                        Fl_PEEP = float(cols[index])
+                        index = index+1
+                        PEEP_inspi_detection_delta = float(cols[index])
+                        index = index+1
+                        vol_inspi_detection_delta = float(cols[index])
+                        index = index+1
+                        inspi_detection_delta_duration = float(cols[index])
+                        index = index+1
                         index = index+1
                         index = index+1
                         valve_air = float(cols[index])
@@ -219,13 +261,13 @@ while True:
                         vol_O2 = float(cols[index])
                         index = index+1
 
-                        dt = t-t0
+                        t_t0 = t-t0
                         p_cmh2o = (p-p0)*1.01972
                         p_e_cmh2o = (p_e-p0)*1.01972  
                         flow_filtered = flow_filtered_air+flow_filtered_O2+flow_filtered_expi
                         vol_l = (vol_air+vol_O2+vol_expi)
 
-                        if (dt < t_plot[-1]): 
+                        if (t_t0 < t_plot[-1]): 
                             # Reset if time seems to decrease...
                             t_plot = [0]
                             p_cmh2o_plot = [0]
@@ -249,10 +291,10 @@ while True:
                             vol_l_plot = [0]
                         if (select == 0): 
                             wintitle = '[Ppeak: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(Ppeak)))
+                            win.setWindowTitle(wintitle.format(int(Ppeak*1.01972)))
                         elif (select == 1): 
                             wintitle = '[PEEP: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(PEEP)))
+                            win.setWindowTitle(wintitle.format(int(PEEP*1.01972)))
                         elif (select == 2): 
                             wintitle = '[Respi. rate: {:d}/min]'
                             win.setWindowTitle(wintitle.format(int(respi_rate)))
@@ -271,14 +313,33 @@ while True:
                         elif (select == 7): 
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
+                        elif (select == 8): 
+                            wintitle = '[PEEP dec. rate: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(PEEP_dec_rate)))
+                        elif (select == 9): 
+                            wintitle = '[Fl_PEEP: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(Fl_PEEP)))
+                        elif (select == 10): 
+                            wintitle = '[PEEP I delta: {:.1f}]'
+                            win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
+                        elif (select == 11): 
+                            wintitle = '[Vol I delta: {:d}mL]'
+                            win.setWindowTitle(wintitle.format(int(vol_inspi_detection_delta)))
+                        elif (select == 12): 
+                            wintitle = '[I delta: {:d}ms]'
+                            win.setWindowTitle(wintitle.format(int(inspi_detection_delta_duration)))
                         else: 
-                            wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
-                            win.setWindowTitle(wintitle.format(int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
+                            if ((t_t0) % 10 > 5): # Alternate text displayed
+                                wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
+                                win.setWindowTitle(wintitle.format(int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
+                            else:
+                                wintitle = 'PEEP dec. rate: {:d}%, Fl. PEEP: {:d}%, PEEP I delta: {:.1f}, Vol I delta: {:d}mL, I delta: {:d}ms'
+                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration)))
                         if debug: plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
                         if debug: plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
-                        t_plot.append(dt)
+                        t_plot.append(t_t0)
                         p_cmh2o_plot.append(p_cmh2o)
                         p_e_cmh2o_plot.append(p_e_cmh2o)
                         Ppeak_plot.append(Ppeak)
