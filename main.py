@@ -13,7 +13,7 @@ import time
 import threading
 import signal
 from timeit import default_timer as timer
-#from utils import *
+from common import *
 
 #sudo apt-get install python-smbus python-spidev python-pyqtgraph
 # or
@@ -111,6 +111,7 @@ inspi_detection_delta_duration_max = 1000
 flow_thresh_step = 0.25
 flow_thresh_min = 0
 flow_thresh_max = 50
+enable_alarms = True
 enable_pigpio = True
 enable_buzzer = True
 disable_hard_pwm = False
@@ -168,6 +169,8 @@ valve_flow_control_O2_coef = 2.0
 debug = False
 ###############################################################################
 
+alarms = 0
+
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
 
@@ -184,8 +187,9 @@ if enable_pigpio:
     import pigpio
     pi = pigpio.pi()
     if not pi.connected:
-       print('pigpio could not be initialized')
+       print('Unable to connect to pigpio')
        exit(1)
+    print('pigpio connected')
 
 # Other PWM init
 valve_air_pin = 12
@@ -529,18 +533,28 @@ t_all_valves_closed = t0
 t_valve_air_closed = t0
 t_valve_O2_closed = t0
 t_valve_expi_closed = t0
-
-# File errors are not critical...
-try:
-    file = open('data.csv', 'a')
-    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);p_e (in mbar);temperature_e (in C);select;Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;flow_control_air (in L/min);flow_control_O2 (in L/min);flow_control_expi (in L/min);mode;PEEP_dec_rate (in %);Fl_PEEP (in %);PEEP_inspi_detection_delta (in mbar);vol_inspi_detection_delta (in ml);inspi_detection_delta_duration (in ms);flow_thresh (in L/min);pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
-except:
-    pass
+t_alarms = t0
 
 # Stop the startup beep
 if enable_buzzer: buz_pwm.ChangeDutyCycle(0)
 
+# File errors are not critical...
+try:
+    file = open('data.csv', 'a')
+    file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);p_e (in mbar);temperature_e (in C);alarms;select;'
+                'Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;flow_control_air (in L/min);flow_control_O2 (in L/min);flow_control_expi (in L/min);mode;'
+                'PEEP_dec_rate (in %);Fl_PEEP (in %);PEEP_inspi_detection_delta (in mbar);vol_inspi_detection_delta (in ml);inspi_detection_delta_duration (in ms);flow_thresh (in L/min);'
+                'pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;'
+                'pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);'
+                'flow_air (in L/min);flow_expi (in L/min);flow_O2 (in L/min);flow_filtered_air (in L/min);flow_filtered_expi (in L/min);flow_filtered_O2 (in L/min);vol_air (in L);vol_expi (in L);vol_O2 (in L);\n')
+except:
+    if enable_alarms:
+        t_alarms = t
+        alarms = alarms | OS_ALARM
+
 def signal_handler(sig, frame):
+    signal.signal(signal.SIGINT, signal.SIG_IGN) # To avoid interruption by other CTRL+C...
+    print('Exiting...')
     valve_air_val = 0
     valve_O2_val = 0
     if enable_pigpio:
@@ -596,7 +610,7 @@ while True:
         pwm0_ns = pwm0_ns_max
         pwm1_ns = pwm1_ns_min
         Ppeak_reached = False
-        if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should close valves to maintain PEEP...
+        if ((p-p0 < PEEP) or (PEEP_reached == True)): # Should try to maintain PEEP...
             if not PEEP_reached:
                 t_PEEP_reached = t
             PEEP_reached = True
@@ -670,11 +684,33 @@ while True:
         valve_inspi_val = GPIO.HIGH
         valve_expi_val = 100
 
-    if ((p-p0 > Ppeak+P_err) or (p-p0 < PEEP-P_err) or (p-p0 > P_absolute_max) or (p-p0 < P_absolute_min)): # Pressure should never be too low or too high...
+    # Pressure should never be too low or too high...
+    if (((p-p0 > Ppeak+P_err) or (p-p0 < PEEP-P_err) or (p-p0 > P_absolute_max) or (p-p0 < P_absolute_min)) or \
+        ((enable_p_expi_hsc) and ((p_e-p0 > Ppeak+P_err) or (p_e-p0 < PEEP-P_err) or (p_e-p0 > P_absolute_max) or (p_e-p0 < P_absolute_min)))): 
+        if enable_alarms:
+            t_alarms = t
+            alarms = alarms | PRESSURE_ALARM
         valve_air_val = 0
         valve_O2_val = 0
         valve_inspi_val = GPIO.HIGH
         valve_expi_val = 100
+
+    if (mode != 2):
+        if ((t-t_cycle_start > 0.9*inspi_duration) and (not Ppeak_reached)):
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | PPEAK_ALARM
+        if ((t-t_cycle_start > inspi_duration+0.9*expi_duration) and (not PEEP_reached)):
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | PEEP_ALARM
+
+    if (alarms != 0):
+        if (t-t_alarms > 5): # Clear alarms and stop buzzer after some time if no recent alarm
+            alarms = 0
+            if enable_buzzer: buz_pwm.ChangeDutyCycle(0)
+        else:
+            if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
 
     # Actuators
     valve_air_val = min(100, max(0, valve_air_val))
@@ -806,6 +842,9 @@ while True:
             flow_air_rsc.pressure_request()
         except:
             print('RSC A sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             flow_air_rsc.pressure_request()
     if enable_expi_rsc: 
@@ -813,6 +852,9 @@ while True:
             flow_expi_rsc.pressure_request()
         except:
             print('RSC E sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             flow_expi_rsc.pressure_request()
     if enable_O2_rsc: 
@@ -820,6 +862,9 @@ while True:
             flow_O2_rsc.pressure_request()
         except:
             print('RSC O sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             flow_O2_rsc.pressure_request()
     time.sleep(max(0, delay_rsc-0.005))
@@ -827,31 +872,32 @@ while True:
         try:
             if not p_ms5837.read(ms5837.OSR_256):
                 print('P sensor read failed!')
+                if enable_alarms:
+                    t_alarms = t
+                    alarms = alarms | HARDWARE_ALARM
                 time.sleep(0.1)
                 if not p_ms5837.read(ms5837.OSR_256):
                     print('P sensor read failed!')
-                    if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                     exit(1)
         except:
             print('P sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             if not p_ms5837.read(ms5837.OSR_256):
                 print('P sensor read failed!')
-                if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                 exit(1)
     elif enable_p_inspi_hsc:
         try:
             p_diff_inspi_hsc, temp_inspi_hsc = p_inspi_hsc.read()
         except:
             print('HSC I sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
-            try:
-                p_diff_inspi_hsc, temp_inspi_hsc = p_inspi_hsc.read()
-            except:
-                print('HSC I sensor read failed!')
-                time.sleep(0.1)
-                if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
-                exit(1)
+            p_diff_inspi_hsc, temp_inspi_hsc = p_inspi_hsc.read()
         time.sleep(0.005)
     else:
         time.sleep(0.005)
@@ -860,19 +906,19 @@ while True:
             p_diff_expi_hsc, temp_expi_hsc = p_expi_hsc.read()
         except:
             print('HSC E sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
-            try:
-                p_diff_expi_hsc, temp_expi_hsc = p_expi_hsc.read()
-            except:
-                print('HSC E sensor read failed!')
-                time.sleep(0.1)
-                if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
-                exit(1)
+            p_diff_expi_hsc, temp_expi_hsc = p_expi_hsc.read()
     if enable_air_rsc: 
         try:
             raw_pressure_air = flow_air_rsc.pressure_reply()
         except:
             print('RSC A sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             raw_pressure_air = flow_air_rsc.pressure_reply()
     if enable_expi_rsc: 
@@ -880,6 +926,9 @@ while True:
             raw_pressure_expi = flow_expi_rsc.pressure_reply()
         except:
             print('RSC E sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             raw_pressure_expi = flow_expi_rsc.pressure_reply()
     if enable_O2_rsc: 
@@ -887,6 +936,9 @@ while True:
             raw_pressure_O2 = flow_O2_rsc.pressure_reply()
         except:
             print('RSC O sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             raw_pressure_O2 = flow_O2_rsc.pressure_reply()
     if enable_air_rsc: 
@@ -894,6 +946,9 @@ while True:
             flow_air_rsc.temperature_request()
         except:
             print('RSC A sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             flow_air_rsc.temperature_request()
     if enable_expi_rsc: 
@@ -901,6 +956,9 @@ while True:
             flow_expi_rsc.temperature_request()
         except:
             print('RSC E sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             flow_expi_rsc.temperature_request()
     if enable_O2_rsc: 
@@ -908,6 +966,9 @@ while True:
             flow_O2_rsc.temperature_request()
         except:
             print('RSC O sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             flow_O2_rsc.temperature_request()
     time.sleep(delay_rsc)
@@ -916,6 +977,9 @@ while True:
             raw_temperature_air = flow_air_rsc.temperature_reply()
         except:
             print('RSC A sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             raw_temperature_air = flow_air_rsc.temperature_reply()
     if enable_expi_rsc: 
@@ -923,6 +987,9 @@ while True:
             raw_temperature_expi = flow_expi_rsc.temperature_reply()
         except:
             print('RSC E sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             raw_temperature_expi = flow_expi_rsc.temperature_reply()
     if enable_O2_rsc: 
@@ -930,6 +997,9 @@ while True:
             raw_temperature_O2 = flow_O2_rsc.temperature_reply()
         except:
             print('RSC O sensor read failed!')
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | HARDWARE_ALARM
             time.sleep(0.1)
             raw_temperature_O2 = flow_O2_rsc.temperature_reply()
     if enable_air_rsc: 
@@ -1013,15 +1083,18 @@ while True:
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, temperature0, p, temperature, p_e, temperature_e, select, Ppeak, PEEP, respi_rate, inspi_ratio, flow_control_air, flow_control_O2, flow_control_expi, mode, 
+        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, p_e, temperature_e, alarms, select, 
+                               Ppeak, PEEP, respi_rate, inspi_ratio, flow_control_air, flow_control_O2, flow_control_expi, mode, 
                                PEEP_dec_rate, Fl_PEEP, PEEP_inspi_detection_delta, vol_inspi_detection_delta, inspi_detection_delta_duration, flow_thresh, 
                                pwm0_ns, pwm1_ns, valve_air_val, valve_O2_val, valve_inspi_val, valve_expi_val, 
                                pressure_air, pressure_expi, pressure_O2, temperature_air, temperature_expi, temperature_O2, 
                                flow_air*60000.0, flow_expi*60000.0, flow_O2*60000.0, flow_filtered_air*60000.0, flow_filtered_expi*60000.0, flow_filtered_O2*60000.0, vol_air*1000.0, vol_expi*1000.0, vol_O2*1000.0))
         file.flush()
     except:
-        if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
+        if enable_alarms:
+            t_alarms = t
+            alarms = alarms | OS_ALARM
 
     if (debug): print(('t-t0: %0.2f s \tdt: %0.3f s \tP0: %0.1f mbar \tT0: %0.2f C \tP: %0.1f mbar \tT: %0.2f C \tP A: %0.5f mbar \tP off. A: %0.5f mbar \tP E: %0.5f mbar \tP off. E: %0.5f mbar \tP O: %0.5f mbar \tP off. O: %0.5f mbar') % (
         t-t0, dt, p0, temperature0, p, temperature, pressure_air, pressure_offset_air, pressure_expi, pressure_offset_expi, pressure_O2, pressure_offset_O2)) 
@@ -1059,17 +1132,21 @@ while True:
             try:
                 if not p0_ms5837.read(ms5837.OSR_256):
                     print('P0 sensor read failed!')
+                    if enable_alarms:
+                        t_alarms = t
+                        alarms = alarms | HARDWARE_ALARM
                     time.sleep(0.1)
                     if not p0_ms5837.read(ms5837.OSR_256):
                         print('P0 sensor read failed!')
-                        if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                         exit(1)
             except:
                 print('P0 sensor read failed!')
+                if enable_alarms:
+                    t_alarms = t
+                    alarms = alarms | HARDWARE_ALARM
                 time.sleep(0.1)
                 if not p0_ms5837.read(ms5837.OSR_256):
                     print('P0 sensor read failed!')
-                    if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
                     exit(1)
             p0 = p0_ms5837.pressure()
             temperature0 = p0_ms5837.temperature()
