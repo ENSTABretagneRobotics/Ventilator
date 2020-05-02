@@ -22,7 +22,7 @@ offset2y = 20
 debug = False
 ###############################################################################
 
-nb_cols = 45 # Not counting the final '\n'
+nb_cols = 46 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -263,7 +263,9 @@ while (bExit != 1):
                         index = index+1
                         PEEP_dec_rate = float(cols[index])
                         index = index+1
-                        Fl_PEEP = float(cols[index])
+                        Fl_PEEP_air = float(cols[index])
+                        index = index+1
+                        Fl_PEEP_O2 = float(cols[index])
                         index = index+1
                         PEEP_inspi_detection_delta = float(cols[index])
                         index = index+1
@@ -370,27 +372,30 @@ while (bExit != 1):
                             wintitle = '[PE dec.: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(PEEP_dec_rate)))
                         elif (select == 9): 
-                            wintitle = '[Fl_PE: {:d}%]'
-                            win.setWindowTitle(wintitle.format(int(Fl_PEEP)))
+                            wintitle = '[Fl. E A: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(Fl_PEEP_air)))
                         elif (select == 10): 
-                            wintitle = '[PE I delta: {:.1f}]'
-                            win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
+                            wintitle = '[Fl. E O: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(Fl_PEEP_O2)))
                         elif (select == 11): 
-                            wintitle = '[Vol. I delta: {:d}mL]'
-                            win.setWindowTitle(wintitle.format(int(vol_inspi_detection_delta)))
+                            wintitle = '[P I dlta: {:.1f}]'
+                            win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
                         elif (select == 12): 
-                            wintitle = '[I delta: {:d}ms]'
-                            win.setWindowTitle(wintitle.format(int(inspi_detection_delta_duration)))
+                            wintitle = '[V I dlta: {:d}mL]'
+                            win.setWindowTitle(wintitle.format(int(vol_inspi_detection_delta)))
                         elif (select == 13): 
+                            wintitle = '[I dlta: {:d}ms]'
+                            win.setWindowTitle(wintitle.format(int(inspi_detection_delta_duration)))
+                        elif (select == 14): 
                             wintitle = '[Fl. th.: {:.2f}]'
                             win.setWindowTitle(wintitle.format(flow_thresh))
                         else: 
                             if ((int(t_t0) % 10) > 5): # Alternate text displayed
-                                wintitle = 'Ppeak: {:d}, PEEP: {:d}, Respi. rate: {:d}/min, I:E: {:.2f}, Flow A: {:d}, Flow O: {:d}, Flow E: {:d}, Mode: {:d}'
+                                wintitle = 'Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f} Flow A: {:d} Flow O: {:d} Flow E: {:d} Mode: {:d}'
                                 win.setWindowTitle(wintitle.format(int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
                             else:
-                                wintitle = 'PE dec.: {:d}%, Fl. PE: {:d}%, PE I delta: {:.1f}, Vol. I delta: {:d}mL, I delta: {:d}ms, Fl. th.: {:.2f}'
-                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
+                                wintitle = 'PE dec.: {:d}% Fl. E A: {:d}% Fl. E O: {:d}% P I dlta: {:.1f} V I dlta: {:d}mL I dlta: {:d}ms Fl. th.: {:.2f}'
+                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
                             if ((alarms != 0) and ((int(t_t0) % 2) == 0)):
                                 wintitle = 'Alarm 0x{:04X} : '
                                 if ((alarms & HARDWARE_ALARM) > 0):
