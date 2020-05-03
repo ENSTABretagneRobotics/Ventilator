@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from __future__ import division
+from __future__ import division, print_function
 import math
 import sys
 import os
@@ -245,45 +245,45 @@ while (bExit != 1):
                         index = index+1
                         select = int(cols[index])
                         index = index+1
-                        Ppeak = float(cols[index])
+                        mode = int(cols[index])
                         index = index+1
-                        PEEP = float(cols[index])
+                        flow_control_air = int(cols[index])
                         index = index+1
-                        respi_rate = float(cols[index])
+                        flow_control_O2 = int(cols[index])
+                        index = index+1
+                        flow_control_expi = int(cols[index])
+                        index = index+1
+                        Ppeak = int(cols[index])
+                        index = index+1
+                        PEEP = int(cols[index])
+                        index = index+1
+                        respi_rate = int(cols[index])
                         index = index+1
                         inspi_ratio = float(cols[index])
                         index = index+1
-                        flow_control_air = float(cols[index])
+                        PEEP_dec_rate = int(cols[index])
                         index = index+1
-                        flow_control_O2 = float(cols[index])
+                        Fl_PEEP_air = int(cols[index])
                         index = index+1
-                        flow_control_expi = float(cols[index])
-                        index = index+1
-                        mode = float(cols[index])
-                        index = index+1
-                        PEEP_dec_rate = float(cols[index])
-                        index = index+1
-                        Fl_PEEP_air = float(cols[index])
-                        index = index+1
-                        Fl_PEEP_O2 = float(cols[index])
+                        Fl_PEEP_O2 = int(cols[index])
                         index = index+1
                         PEEP_inspi_detection_delta = float(cols[index])
                         index = index+1
-                        vol_inspi_detection_delta = float(cols[index])
+                        vol_inspi_detection_delta = int(cols[index])
                         index = index+1
-                        inspi_detection_delta_duration = float(cols[index])
+                        inspi_detection_delta_duration = int(cols[index])
                         index = index+1
                         flow_thresh = float(cols[index])
                         index = index+1
                         index = index+1
                         index = index+1
-                        valve_air = float(cols[index])
+                        valve_air = int(cols[index])
                         index = index+1
-                        valve_O2 = float(cols[index])
+                        valve_O2 = int(cols[index])
                         index = index+1
-                        valve_inspi = float(cols[index])
+                        valve_inspi = int(cols[index])
                         index = index+1
-                        valve_expi = float(cols[index])
+                        valve_expi = int(cols[index])
                         index = index+1
                         pressure_air = float(cols[index])
                         index = index+1
@@ -345,29 +345,29 @@ while (bExit != 1):
                             flow_filtered_plot = [0]
                             vol_l_plot = [0]
                         if (select == 0): 
-                            wintitle = '[Ppeak: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(Ppeak*1.01972)))
-                        elif (select == 1): 
-                            wintitle = '[PEEP: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(PEEP*1.01972)))
-                        elif (select == 2): 
-                            wintitle = '[Respi. rate: {:d}/min]'
-                            win.setWindowTitle(wintitle.format(int(respi_rate)))
-                        elif (select == 3): 
-                            wintitle = '[I:E: {:.2f}]'
-                            win.setWindowTitle(wintitle.format(inspi_ratio))
-                        elif (select == 4): 
-                            wintitle = '[Flow A: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control_air)))
-                        elif (select == 5): 
-                            wintitle = '[Flow O: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control_O2)))
-                        elif (select == 6): 
-                            wintitle = '[Flow E: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control_expi)))
-                        elif (select == 7): 
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
+                        elif (select == 1): 
+                            wintitle = '[Flow A: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control_air)))
+                        elif (select == 2): 
+                            wintitle = '[Flow O: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control_O2)))
+                        elif (select == 3): 
+                            wintitle = '[Flow E: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control_expi)))
+                        elif (select == 4): 
+                            wintitle = '[Ppeak: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(Ppeak*1.01972)))
+                        elif (select == 5): 
+                            wintitle = '[PEEP: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(PEEP*1.01972)))
+                        elif (select == 6): 
+                            wintitle = '[Respi. rate: {:d}/min]'
+                            win.setWindowTitle(wintitle.format(int(respi_rate)))
+                        elif (select == 7): 
+                            wintitle = '[I:E: {:.2f}]'
+                            win.setWindowTitle(wintitle.format(inspi_ratio))
                         elif (select == 8): 
                             wintitle = '[PE dec.: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(PEEP_dec_rate)))
@@ -391,8 +391,8 @@ while (bExit != 1):
                             win.setWindowTitle(wintitle.format(flow_thresh))
                         else: 
                             if ((int(t_t0) % 10) > 5): # Alternate text displayed
-                                wintitle = 'Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f} Flow A: {:d} Flow O: {:d} Flow E: {:d} Mode: {:d}'
-                                win.setWindowTitle(wintitle.format(int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio, int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(mode)))
+                                wintitle = 'Mode: {:d} Flow A: {:d} Flow O: {:d} Flow E: {:d} Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f}'
+                                win.setWindowTitle(wintitle.format(int(mode), int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio))
                             else:
                                 wintitle = 'PE dec.: {:d}% Fl. E A: {:d}% Fl. E O: {:d}% P I dlta: {:.1f} V I dlta: {:d}mL I dlta: {:d}ms Fl. th.: {:.2f}'
                                 win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
@@ -450,10 +450,10 @@ while (bExit != 1):
                         flow_control_air_plot.append(flow_control_air)
                         flow_control_O2_plot.append(flow_control_O2)
                         flow_control_expi_plot.append(flow_control_expi)
-                        valve_air_plot.append(valve_air/10.0)
-                        valve_O2_plot.append(valve_O2/10.0)
+                        valve_air_plot.append(float(valve_air)/10.0)
+                        valve_O2_plot.append(float(valve_O2)/10.0)
                         valve_inspi_plot.append(10.0*valve_inspi)
-                        valve_expi_plot.append(valve_expi/10.0)
+                        valve_expi_plot.append(float(valve_expi)/10.0)
                         flow_air_plot.append(flow_air)
                         flow_expi_plot.append(flow_expi)
                         flow_O2_plot.append(flow_O2)

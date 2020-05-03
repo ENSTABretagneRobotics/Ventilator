@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from __future__ import division
+from __future__ import division, print_function
 import RPi.GPIO as GPIO
 import ms5837 # From https://github.com/bluerobotics/ms5837-python
 import rsc # From https://github.com/tin-/ascp
@@ -48,14 +48,14 @@ from common import *
 # Parameters
 ###############################################################################
 # User parameters
+mode = 1 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
+flow_control_air = 20 # In L/min, >= flow_control_air_max means no limit...
+flow_control_O2 = 20 # In L/min, >= flow_control_O2_max means no limit...
+flow_control_expi = 0 # In L/min, >= flow_control_expi_max means no limit, <= 0 means no depress...
 Ppeak = 30 # In mbar (= approx. cmH2O)
 PEEP = 5 # In mbar (= approx. cmH2O)
 respi_rate = 20 # In breaths/min
 inspi_ratio = 0.3
-flow_control_air = 20 # In L/min, >= flow_control_air_max means no limit...
-flow_control_O2 = 20 # In L/min, >= flow_control_O2_max means no limit...
-flow_control_expi = 0 # In L/min, >= flow_control_expi_max means no limit, <= 0 means no depress...
-mode = 1 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
 # User advanced parameters
 PEEP_dec_rate = 90 # In %, to limit the maximum expiration flow before reaching the PEEP
 Fl_PEEP_air = 100 # In % of flow_control_air, to help detecting inspiration after reaching the PEEP
@@ -70,6 +70,18 @@ pwm0_ns_min = 1000000
 pwm0_ns_max = 1500000
 pwm1_ns_min = 1500000
 pwm1_ns_max = 2000000
+mode_step = 1
+mode_min = 0
+mode_max = 2
+flow_control_air_step = 2
+flow_control_air_min = 0
+flow_control_air_max = 150
+flow_control_O2_step = 2
+flow_control_O2_min = 0
+flow_control_O2_max = 150
+flow_control_expi_step = 2
+flow_control_expi_min = 0
+flow_control_expi_max = 150
 Ppeak_step = 1
 Ppeak_min = 0
 Ppeak_max = 100
@@ -82,18 +94,6 @@ respi_rate_max = 100
 inspi_ratio_step = 0.05
 inspi_ratio_min = 0.00
 inspi_ratio_max = 1.00
-flow_control_air_step = 2
-flow_control_air_min = 0
-flow_control_air_max = 150
-flow_control_O2_step = 2
-flow_control_O2_min = 0
-flow_control_O2_max = 150
-flow_control_expi_step = 2
-flow_control_expi_min = 0
-flow_control_expi_max = 150
-mode_step = 1
-mode_min = 0
-mode_max = 2
 PEEP_dec_rate_step = 2
 PEEP_dec_rate_min = 60
 PEEP_dec_rate_max = 100
@@ -257,7 +257,7 @@ else:
 
 # Digital inputs (buttons)
 select = -1 # Index of the selected parameter that should be changed by up/down buttons
-parameters = ['Ppeak', 'PEEP', 'respi_rate', 'inspi_ratio', 'flow_control_air', 'flow_control_O2', 'flow_control_expi', 'mode', 
+parameters = ['mode', 'flow_control_air', 'flow_control_O2', 'flow_control_expi', 'Ppeak', 'PEEP', 'respi_rate', 'inspi_ratio', 
               'PEEP_dec_rate', 'Fl_PEEP_air', 'Fl_PEEP_O2', 'PEEP_inspi_detection_delta', 'vol_inspi_detection_delta', 'inspi_detection_delta_duration', 'flow_thresh']
 select_button_pin = 24
 GPIO.setup(select_button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -546,7 +546,7 @@ if enable_buzzer: buz_pwm.ChangeDutyCycle(0)
 try:
     file = open('data.csv', 'a')
     file.write('t (in s);t0 (in s);p0 (in mbar);temperature0 (in C);p (in mbar);temperature (in C);p_e (in mbar);temperature_e (in C);alarms;select;'
-                'Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;flow_control_air (in L/min);flow_control_O2 (in L/min);flow_control_expi (in L/min);mode;'
+                'mode;flow_control_air (in L/min);flow_control_O2 (in L/min);flow_control_expi (in L/min);Ppeak (in mbar);PEEP (in mbar);respi_rate (in breaths/min);inspi_ratio;'
                 'PEEP_dec_rate (in %);Fl_PEEP_air (in %);Fl_PEEP_O2 (in %);PEEP_inspi_detection_delta (in mbar);vol_inspi_detection_delta (in ml);inspi_detection_delta_duration (in ms);flow_thresh (in L/min);'
                 'pwm0_ns;pwm1_ns;valve_air_val;valve_O2_val;valve_inspi_val;valve_expi_val;'
                 'pressure_air (in mbar);pressure_expi (in mbar);pressure_O2 (in mbar);temperature_air (in C);temperature_expi (in C);temperature_O2 (in C);'
@@ -751,100 +751,132 @@ while True:
         if (up_button_val != up_button_val_prev):
             up_button_val_prev = up_button_val
             if (up_button_val == GPIO.HIGH):
-                if (select == 0):
-                    Ppeak = Ppeak + Ppeak_step
-                    if (Ppeak > Ppeak_max): Ppeak = Ppeak_max
-                if (select == 1):
-                    PEEP = PEEP + PEEP_step
-                    if (PEEP > PEEP_max): PEEP = PEEP_max
-                if (select == 2):
-                    respi_rate = respi_rate + respi_rate_step
-                    if (respi_rate > respi_rate_max): respi_rate = respi_rate_max
-                if (select == 3):
-                    inspi_ratio = inspi_ratio + inspi_ratio_step
-                    if (inspi_ratio > inspi_ratio_max): inspi_ratio = inspi_ratio_max
-                if (select == 4):
-                    flow_control_air = flow_control_air + flow_control_air_step
-                    if (flow_control_air > flow_control_air_max): flow_control_air = flow_control_air_max
-                if (select == 5):
-                    flow_control_O2 = flow_control_O2 + flow_control_O2_step
-                    if (flow_control_O2 > flow_control_O2_max): flow_control_O2 = flow_control_O2_max
-                if (select == 6):
-                    flow_control_expi = flow_control_expi + flow_control_expi_step
-                    if (flow_control_expi > flow_control_expi_max): flow_control_expi = flow_control_expi_max
-                if (select == 7):
+                param_id = 0
+                if (select == param_id):
                     mode = mode + mode_step
                     if (mode > mode_max): mode = mode_max
-                if (select == 8):
+                param_id = param_id+1
+                if (select == param_id):
+                    flow_control_air = flow_control_air + flow_control_air_step
+                    if (flow_control_air > flow_control_air_max): flow_control_air = flow_control_air_max
+                param_id = param_id+1
+                if (select == param_id):
+                    flow_control_O2 = flow_control_O2 + flow_control_O2_step
+                    if (flow_control_O2 > flow_control_O2_max): flow_control_O2 = flow_control_O2_max
+                param_id = param_id+1
+                if (select == param_id):
+                    flow_control_expi = flow_control_expi + flow_control_expi_step
+                    if (flow_control_expi > flow_control_expi_max): flow_control_expi = flow_control_expi_max
+                param_id = param_id+1
+                if (select == param_id):
+                    Ppeak = Ppeak + Ppeak_step
+                    if (Ppeak > Ppeak_max): Ppeak = Ppeak_max
+                param_id = param_id+1
+                if (select == param_id):
+                    PEEP = PEEP + PEEP_step
+                    if (PEEP > PEEP_max): PEEP = PEEP_max
+                param_id = param_id+1
+                if (select == param_id):
+                    respi_rate = respi_rate + respi_rate_step
+                    if (respi_rate > respi_rate_max): respi_rate = respi_rate_max
+                param_id = param_id+1
+                if (select == param_id):
+                    inspi_ratio = inspi_ratio + inspi_ratio_step
+                    if (inspi_ratio > inspi_ratio_max): inspi_ratio = inspi_ratio_max
+                param_id = param_id+1
+                if (select == param_id):
                     PEEP_dec_rate = PEEP_dec_rate + PEEP_dec_rate_step
                     if (PEEP_dec_rate > PEEP_dec_rate_max): PEEP_dec_rate = PEEP_dec_rate_max
-                if (select == 9):
+                param_id = param_id+1
+                if (select == param_id):
                     Fl_PEEP_air = Fl_PEEP_air + Fl_PEEP_air_step
                     if (Fl_PEEP_air > Fl_PEEP_air_max): Fl_PEEP_air = Fl_PEEP_air_max
-                if (select == 10):
+                param_id = param_id+1
+                if (select == param_id):
                     Fl_PEEP_O2 = Fl_PEEP_O2 + Fl_PEEP_O2_step
                     if (Fl_PEEP_O2 > Fl_PEEP_O2_max): Fl_PEEP_O2 = Fl_PEEP_O2_max
-                if (select == 11):
+                param_id = param_id+1
+                if (select == param_id):
                     PEEP_inspi_detection_delta = PEEP_inspi_detection_delta + PEEP_inspi_detection_delta_step
                     if (PEEP_inspi_detection_delta > PEEP_inspi_detection_delta_max): PEEP_inspi_detection_delta = PEEP_inspi_detection_delta_max
-                if (select == 12):
+                param_id = param_id+1
+                if (select == param_id):
                     vol_inspi_detection_delta = vol_inspi_detection_delta + vol_inspi_detection_delta_step
                     if (vol_inspi_detection_delta > vol_inspi_detection_delta_max): vol_inspi_detection_delta = vol_inspi_detection_delta_max
-                if (select == 13):
+                param_id = param_id+1
+                if (select == param_id):
                     inspi_detection_delta_duration = inspi_detection_delta_duration + inspi_detection_delta_duration_step
                     if (inspi_detection_delta_duration > inspi_detection_delta_duration_max): inspi_detection_delta_duration = inspi_detection_delta_duration_max
-                if (select == 14):
+                param_id = param_id+1
+                if (select == param_id):
                     flow_thresh = flow_thresh + flow_thresh_step
                     if (flow_thresh > flow_thresh_max): flow_thresh = flow_thresh_max
+                param_id = param_id+1
         down_button_val = GPIO.input(down_button_pin)
         if (down_button_val != down_button_val_prev):
             down_button_val_prev = down_button_val
             if (down_button_val == GPIO.HIGH):
-                if (select == 0):
-                    Ppeak = Ppeak - Ppeak_step
-                    if (Ppeak < Ppeak_min): Ppeak = Ppeak_min
-                if (select == 1):
-                    PEEP = PEEP - PEEP_step
-                    if (PEEP < PEEP_min): PEEP = PEEP_min
-                if (select == 2):
-                    respi_rate = respi_rate - respi_rate_step
-                    if (respi_rate < respi_rate_min): respi_rate = respi_rate_min
-                if (select == 3):
-                    inspi_ratio = inspi_ratio - inspi_ratio_step
-                    if (inspi_ratio < inspi_ratio_min): inspi_ratio = inspi_ratio_min
-                if (select == 4):
-                    flow_control_air = flow_control_air - flow_control_air_step
-                    if (flow_control_air < flow_control_air_min): flow_control_air = flow_control_air_min
-                if (select == 5):
-                    flow_control_O2 = flow_control_O2 - flow_control_O2_step
-                    if (flow_control_O2 < flow_control_O2_min): flow_control_O2 = flow_control_O2_min
-                if (select == 6):
-                    flow_control_expi = flow_control_expi - flow_control_expi_step
-                    if (flow_control_expi < flow_control_expi_min): flow_control_expi = flow_control_expi_min
-                if (select == 7):
+                param_id = 0
+                if (select == param_id):
                     mode = mode - mode_step
                     if (mode < mode_min): mode = mode_min
-                if (select == 8):
+                param_id = param_id+1
+                if (select == param_id):
+                    flow_control_air = flow_control_air - flow_control_air_step
+                    if (flow_control_air < flow_control_air_min): flow_control_air = flow_control_air_min
+                param_id = param_id+1
+                if (select == param_id):
+                    flow_control_O2 = flow_control_O2 - flow_control_O2_step
+                    if (flow_control_O2 < flow_control_O2_min): flow_control_O2 = flow_control_O2_min
+                param_id = param_id+1
+                if (select == param_id):
+                    flow_control_expi = flow_control_expi - flow_control_expi_step
+                    if (flow_control_expi < flow_control_expi_min): flow_control_expi = flow_control_expi_min
+                param_id = param_id+1
+                if (select == param_id):
+                    Ppeak = Ppeak - Ppeak_step
+                    if (Ppeak < Ppeak_min): Ppeak = Ppeak_min
+                param_id = param_id+1
+                if (select == param_id):
+                    PEEP = PEEP - PEEP_step
+                    if (PEEP < PEEP_min): PEEP = PEEP_min
+                param_id = param_id+1
+                if (select == param_id):
+                    respi_rate = respi_rate - respi_rate_step
+                    if (respi_rate < respi_rate_min): respi_rate = respi_rate_min
+                param_id = param_id+1
+                if (select == param_id):
+                    inspi_ratio = inspi_ratio - inspi_ratio_step
+                    if (inspi_ratio < inspi_ratio_min): inspi_ratio = inspi_ratio_min
+                param_id = param_id+1
+                if (select == param_id):
                     PEEP_dec_rate = PEEP_dec_rate - PEEP_dec_rate_step
                     if (PEEP_dec_rate < PEEP_dec_rate_min): PEEP_dec_rate = PEEP_dec_rate_min
-                if (select == 9):
+                param_id = param_id+1
+                if (select == param_id):
                     Fl_PEEP_air = Fl_PEEP_air - Fl_PEEP_air_step
                     if (Fl_PEEP_air < Fl_PEEP_air_min): Fl_PEEP_air = Fl_PEEP_air_min
-                if (select == 10):
+                param_id = param_id+1
+                if (select == param_id):
                     Fl_PEEP_O2 = Fl_PEEP_O2 - Fl_PEEP_O2_step
                     if (Fl_PEEP_O2 < Fl_PEEP_O2_min): Fl_PEEP_O2 = Fl_PEEP_O2_min
-                if (select == 11):
+                param_id = param_id+1
+                if (select == param_id):
                     PEEP_inspi_detection_delta = PEEP_inspi_detection_delta - PEEP_inspi_detection_delta_step
                     if (PEEP_inspi_detection_delta < PEEP_inspi_detection_delta_min): PEEP_inspi_detection_delta = PEEP_inspi_detection_delta_min
-                if (select == 12):
+                param_id = param_id+1
+                if (select == param_id):
                     vol_inspi_detection_delta = vol_inspi_detection_delta - vol_inspi_detection_delta_step
                     if (vol_inspi_detection_delta < vol_inspi_detection_delta_min): vol_inspi_detection_delta = vol_inspi_detection_delta_min
-                if (select == 13):
+                param_id = param_id+1
+                if (select == param_id):
                     inspi_detection_delta_duration = inspi_detection_delta_duration - inspi_detection_delta_duration_step
                     if (inspi_detection_delta_duration < inspi_detection_delta_duration_min): inspi_detection_delta_duration = inspi_detection_delta_duration_min
-                if (select == 14):
+                param_id = param_id+1
+                if (select == param_id):
                     flow_thresh = flow_thresh - flow_thresh_step
                     if (flow_thresh < flow_thresh_min): flow_thresh = flow_thresh_min
+                param_id = param_id+1
  
     # Sensors
     if enable_air_rsc: 
@@ -1017,21 +1049,21 @@ while True:
         pressure_air = flow_air_rsc.conv_pressure_to_mbar(pressure_air)
         pressure_air = pressure_air-pressure_offset_air
         rho_air = 1.292*(273.15/(273.15+temperature_air)) # In kg/m3
-        vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((A1_air/float(A2_air))**2-1)))
+        vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((float(A1_air)/float(A2_air))**2-1)))
         flow_air = A1_air*vel_air
     if enable_expi_rsc: 
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temperature_expi)
         pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
         pressure_expi = pressure_expi-pressure_offset_expi
         rho_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
-        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((A1_expi/float(A2_expi))**2-1)))
+        vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((float(A1_expi)/float(A2_expi))**2-1)))
         flow_expi = A1_expi*vel_expi
     if enable_O2_rsc: 
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temperature_O2)
         pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
         pressure_O2 = pressure_O2-pressure_offset_O2
         rho_O2 = 1.292*(273.15/(273.15+temperature_O2)) # In kg/m3
-        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((A1_O2/float(A2_O2))**2-1)))
+        vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((float(A1_O2)/float(A2_O2))**2-1)))
         flow_O2 = A1_O2*vel_O2
 
     # Filters
@@ -1052,9 +1084,9 @@ while True:
     flow_filtered_expi = (1-coef_filter_flow)*flow_expi+coef_filter_flow*flow_filtered_expi
     flow_filtered_O2 = (1-coef_filter_flow)*flow_O2+coef_filter_flow*flow_filtered_O2
     # Volume computation
-    if (abs(flow_filtered_air) > flow_thresh/60000.0): vol_air = vol_air+dt*flow_filtered_air
-    if (abs(flow_filtered_expi) > flow_thresh/60000.0): vol_expi = vol_expi+dt*flow_filtered_expi
-    if (abs(flow_filtered_O2) > flow_thresh/60000.0): vol_O2 = vol_O2+dt*flow_filtered_O2
+    if (abs(flow_filtered_air) > float(flow_thresh)/60000.0): vol_air = vol_air+dt*flow_filtered_air
+    if (abs(flow_filtered_expi) > float(flow_thresh)/60000.0): vol_expi = vol_expi+dt*flow_filtered_expi
+    if (abs(flow_filtered_O2) > float(flow_thresh)/60000.0): vol_O2 = vol_O2+dt*flow_filtered_O2
     if (mode == 2):
         # Override to only make O2:Air mix...
         # Volume is not much meaningful...
@@ -1068,7 +1100,7 @@ while True:
     elif (flow_control_air < flow_control_air_max):
         err_pressure_excess = (p-p0)-Ppeak
         if (err_pressure_excess > 0): # Control to limit the flow to stay below Ppeak
-            valve_air_val_max = max(1, min(100, valve_air_val_max-valve_pressure_excess_control_air_coef*(flow_control_air/float(flow_control_air_max))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
+            valve_air_val_max = max(1, min(100, valve_air_val_max-valve_pressure_excess_control_air_coef*(float(flow_control_air)/float(flow_control_air_max))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
         else:
             if ((valve_air_val > 0) and ((mode == 2) or (t-t_cycle_start < inspi_duration))): # Proportional valve control
                 err_flow_air = flow_control_air-flow_filtered_air*60000.0
@@ -1081,7 +1113,7 @@ while True:
     elif (flow_control_O2 < flow_control_O2_max):
         err_pressure_excess = (p-p0)-Ppeak
         if (err_pressure_excess > 0): # Control to limit the flow to stay below Ppeak
-            valve_O2_val_max =  max(1, min(100, valve_O2_val_max-valve_pressure_excess_control_O2_coef*(flow_control_O2/float(flow_control_O2_max))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
+            valve_O2_val_max =  max(1, min(100, valve_O2_val_max-valve_pressure_excess_control_O2_coef*(float(flow_control_O2)/float(flow_control_O2_max))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
         else:
             if ((valve_O2_val > 0) and ((mode == 2) or (t-t_cycle_start < inspi_duration))): # Proportional valve control
                 err_flow_O2 = flow_control_O2-flow_filtered_O2*60000.0
@@ -1093,11 +1125,16 @@ while True:
     # Log file
     # File errors are not critical...
     try:
-        line = '{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};{};\n'
-        file.write(line.format(t, t0, p0, temperature0, p, temperature, p_e, temperature_e, alarms, select, 
-                               Ppeak, PEEP, respi_rate, inspi_ratio, flow_control_air, flow_control_O2, flow_control_expi, mode, 
-                               PEEP_dec_rate, Fl_PEEP_air, Fl_PEEP_O2, PEEP_inspi_detection_delta, vol_inspi_detection_delta, inspi_detection_delta_duration, flow_thresh, 
-                               pwm0_ns, pwm1_ns, valve_air_val, valve_O2_val, valve_inspi_val, valve_expi_val, 
+        line = ('{};{};{:0.5f};{:0.2f};{:0.5f};{:0.2f};{:0.5f};{:0.2f};{:d};{:d};'
+                '{:d};{:d};{:d};{:d};{:d};{:d};{:d};{:.2f};'
+                '{:d};{:d};{:d};{:.1f};{:d};{:d};{:.2f};'
+                '{:d};{:d};{:d};{:d};{:d};{:d};'
+                '{:0.5f};{:0.5f};{:0.5f};{:0.2f};{:0.2f};{:0.2f};'
+                '{:0.2f};{:0.2f};{:0.2f};{:0.2f};{:0.2f};{:0.2f};{:0.4f};{:0.4f};{:0.4f};\n')
+        file.write(line.format(t, t0, p0, temperature0, p, temperature, p_e, temperature_e, int(alarms), int(select), 
+                               int(mode), int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(Ppeak), int(PEEP), int(respi_rate), inspi_ratio, 
+                               int(PEEP_dec_rate), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh, 
+                               int(pwm0_ns), int(pwm1_ns), int(valve_air_val), int(valve_O2_val), int(valve_inspi_val), int(valve_expi_val), 
                                pressure_air, pressure_expi, pressure_O2, temperature_air, temperature_expi, temperature_O2, 
                                flow_air*60000.0, flow_expi*60000.0, flow_O2*60000.0, flow_filtered_air*60000.0, flow_filtered_expi*60000.0, flow_filtered_O2*60000.0, vol_air*1000.0, vol_expi*1000.0, vol_O2*1000.0))
         file.flush()

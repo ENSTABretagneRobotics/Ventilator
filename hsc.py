@@ -1,5 +1,6 @@
 #!/usr/bin/python
-from __future__ import division
+
+from __future__ import division, print_function
 try:
     import smbus
 except:

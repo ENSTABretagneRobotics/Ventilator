@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Exec=sh -c "sleep 15; cd ~/Share; while true; do python3 gui.py; done" &
+Exec=bash -c "sleep 10; cd ~/Share; while true; do python3 gui.py; done" &
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true

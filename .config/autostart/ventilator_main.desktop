@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Exec=sh -c "sleep 15; cd ~/Share; sudo rm -Rf data.csv; while true; do sudo -E python3 main.py; done" &
+Exec=bash -c "sleep 10; cd ~/Share; sudo rm -Rf data.csv; while true; do sudo -E python3 main.py; done" &
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
