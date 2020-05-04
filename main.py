@@ -48,16 +48,16 @@ from common import *
 # Parameters
 ###############################################################################
 # User parameters
-mode = 1 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
+mode = 0 # 0 : ventilator, 1 : ventilator in assistance mode, 2 : only O2:Air mix
 flow_control_air = 20 # In L/min, >= flow_control_air_max means no limit...
 flow_control_O2 = 20 # In L/min, >= flow_control_O2_max means no limit...
 flow_control_expi = 0 # In L/min, >= flow_control_expi_max means no limit, <= 0 means no depress...
-Ppeak = 30 # In mbar (= approx. cmH2O)
+Ppeak = 25 # In mbar (= approx. cmH2O)
 PEEP = 5 # In mbar (= approx. cmH2O)
 respi_rate = 20 # In breaths/min
 inspi_ratio = 0.3
 # User advanced parameters
-PEEP_dec_rate = 90 # In %, to limit the maximum expiration flow before reaching the PEEP
+PEEP_dec_rate = 75 # In %, to limit the maximum expiration flow before reaching the PEEP
 Fl_PEEP_air = 100 # In % of flow_control_air, to help detecting inspiration after reaching the PEEP
 Fl_PEEP_O2 = 100 # In % of flow_control_O2, to help detecting inspiration after reaching the PEEP
 PEEP_inspi_detection_delta = 2.5 # In mbar (= approx. cmH2O)
@@ -84,10 +84,10 @@ flow_control_expi_min = 0
 flow_control_expi_max = 150
 Ppeak_step = 1
 Ppeak_min = 0
-Ppeak_max = 100
+Ppeak_max = 150
 PEEP_step = 1
 PEEP_min = 0
-PEEP_max = 100
+PEEP_max = 150
 respi_rate_step = 1
 respi_rate_min = 0
 respi_rate_max = 100
@@ -95,7 +95,7 @@ inspi_ratio_step = 0.05
 inspi_ratio_min = 0.00
 inspi_ratio_max = 1.00
 PEEP_dec_rate_step = 2
-PEEP_dec_rate_min = 60
+PEEP_dec_rate_min = 50
 PEEP_dec_rate_max = 100
 Fl_PEEP_air_step = 5
 Fl_PEEP_air_min = 0
@@ -126,13 +126,18 @@ enable_p_expi_hsc = True
 enable_air_rsc = True
 enable_expi_rsc = True
 enable_O2_rsc = True
+rho0_air = 1.292 # In kg/m3 at 0 C
+rho0_expi = 1.292 # In kg/m3 at 0 C
+#rho0_O2 = 1.428 # In kg/m3 at 0 C
+rho0_O2 = 1.292 # In kg/m3 at 0 C
 #R1_air = 0.019100/2.0 # In m
 R1_air = 0.009000/2.0 # In m
 #R2_air = 0.011651/2.0 # In m
 R2_air = 0.006500/2.0 # In m
 R1_expi = 0.019100/2.0 # In m
 #R1_expi = 0.009000/2.0 # In m
-R2_expi = 0.011651/2.0 # In m
+#R2_expi = 0.011651/2.0 # In m
+R2_expi = 0.010100/2.0 # In m
 #R2_expi = 0.006500/2.0 # In m
 #R2_expi = 0.008000/2.0 # In m
 #R1_O2 = 0.019100/2.0 # In m
@@ -150,14 +155,14 @@ delay_rsc = 0.010 # In s
 coef_filter_rsc = 0.95
 nb_count_auto_zero_filter_rsc = 100 # 100
 nb_count_offset_filter_rsc = 100 # 100
-valves_pwm_freq = 800 # In Hz
+valves_pwm_freq = 1200 # In Hz
 valves_init = 50
 valves_closed = 10
 valves_delay = 0.020 # In s
 PEEP_err = 2.0 # In mbar (= approx. cmH2O)
 P_err = 50 # 7.5 # In mbar (= approx. cmH2O)
 P_absolute_min = -5 # In mbar (= approx. cmH2O)
-P_absolute_max = 150 # In mbar (= approx. cmH2O)
+P_absolute_max = 155 # In mbar (= approx. cmH2O)
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.0
 valve_pressure_PEEP_control_expi_coef = 1.0
@@ -556,36 +561,19 @@ except:
         t_alarms = t
         alarms = alarms | OS_ALARM
 
+bExit = False
+
 def signal_handler(sig, frame):
-    signal.signal(signal.SIGINT, signal.SIG_IGN) # To avoid interruption by other CTRL+C...
-    print('Exiting...')
-    valve_air_val = 0
-    valve_O2_val = 0
-    if enable_pigpio:
-        pi.set_PWM_dutycycle(valve_air_pin, int(min(255, max(0, 255*valve_air_val/100))))
-        pi.set_PWM_dutycycle(valve_O2_pin, int(min(255, max(0, 255*valve_O2_val/100))))
-    else:
-        # Hardware PWM for air and O2 proportional valves
-        pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
-        pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
-        if not disable_hard_pwm:
-            os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
-            os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
-    valve_inspi_val = GPIO.HIGH
-    GPIO.output(valve_inspi_pin, valve_inspi_val)
-    valve_expi_val = 100
-    if enable_pigpio:
-        pi.set_PWM_dutycycle(valve_expi_pin, int(min(255, max(0, 255-255*valve_expi_val/100))))
-    else:
-        valve_expi_pwm.ChangeDutyCycle(int(100-valve_expi_val))
-    sys.exit(0)
+    global bExit
+    #signal.signal(signal.SIGINT, signal.SIG_IGN) # To avoid interruption by other CTRL+C...
+    bExit = True
 
 signal.signal(signal.SIGINT, signal_handler) # To be able to put actuators in a safe state when using CTRL+C
 
 # Divisions by 0, NAN, INF, int divisions...?
 
 count = 0
-while True:
+while (not bExit):
     if (t-t_cycle_start < inspi_duration):
         #if (inspi_duration != 0): pwm0_ns = pwm0_ns_max-(pwm0_ns_max-pwm0_ns_min)*(t-t_cycle_start)/inspi_duration
         #else: pwm0_ns = pwm0_ns_max
@@ -689,25 +677,25 @@ while True:
         valve_expi_val = 100
 
     # Pressure should never be too low or too high...
-    if (((p-p0 > Ppeak+P_err) or (p-p0 < PEEP-P_err) or (p-p0 > P_absolute_max) or (p-p0 < P_absolute_min)) or \
-        ((enable_p_expi_hsc) and ((p_e-p0 > Ppeak+P_err) or (p_e-p0 < PEEP-P_err) or (p_e-p0 > P_absolute_max) or (p_e-p0 < P_absolute_min)))): 
-        if enable_alarms:
-            t_alarms = t
-            alarms = alarms | PRESSURE_ALARM
-        valve_air_val = 0
-        valve_O2_val = 0
-        valve_inspi_val = GPIO.HIGH
-        valve_expi_val = 100
+    #if (((p-p0 > Ppeak+P_err) or (p-p0 < PEEP-P_err) or (p-p0 > P_absolute_max) or (p-p0 < P_absolute_min)) or \
+    #    ((enable_p_expi_hsc) and ((p_e-p0 > Ppeak+P_err) or (p_e-p0 < PEEP-P_err) or (p_e-p0 > P_absolute_max) or (p_e-p0 < P_absolute_min)))): 
+    #    if enable_alarms:
+    #        t_alarms = t
+    #        alarms = alarms | PRESSURE_ALARM
+    #    valve_air_val = 0
+    #    valve_O2_val = 0
+    #    valve_inspi_val = GPIO.HIGH
+    #    valve_expi_val = 100
 
-    if (mode != 2):
-        if ((t-t_cycle_start > 0.9*inspi_duration) and (not Ppeak_reached)):
-            if enable_alarms:
-                t_alarms = t
-                alarms = alarms | PPEAK_ALARM
-        if ((t-t_cycle_start > inspi_duration+0.9*expi_duration) and (not PEEP_reached)):
-            if enable_alarms:
-                t_alarms = t
-                alarms = alarms | PEEP_ALARM
+    #if (mode != 2):
+    #    if ((t-t_cycle_start > 0.9*inspi_duration) and (not Ppeak_reached)):
+    #        if enable_alarms:
+    #            t_alarms = t
+    #            alarms = alarms | PPEAK_ALARM
+    #    if ((t-t_cycle_start > inspi_duration+0.9*expi_duration) and (not PEEP_reached)):
+    #        if enable_alarms:
+    #            t_alarms = t
+    #            alarms = alarms | PEEP_ALARM
 
     if (alarms != 0):
         if (t-t_alarms > 5): # Clear alarms and stop buzzer after some time if no recent alarm
@@ -1048,21 +1036,21 @@ while True:
         pressure_air, temperature_air = flow_air_rsc.comp_readings(raw_pressure_air, raw_temperature_air)
         pressure_air = flow_air_rsc.conv_pressure_to_mbar(pressure_air)
         pressure_air = pressure_air-pressure_offset_air
-        rho_air = 1.292*(273.15/(273.15+temperature_air)) # In kg/m3
+        rho_air = rho0_air*(273.15/(273.15+temperature_air)) # In kg/m3
         vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((float(A1_air)/float(A2_air))**2-1)))
         flow_air = A1_air*vel_air
     if enable_expi_rsc: 
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temperature_expi)
         pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
         pressure_expi = pressure_expi-pressure_offset_expi
-        rho_expi = 1.292*(273.15/(273.15+temperature_expi)) # In kg/m3
+        rho_expi = rho0_expi*(273.15/(273.15+temperature_expi)) # In kg/m3
         vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((float(A1_expi)/float(A2_expi))**2-1)))
         flow_expi = A1_expi*vel_expi
     if enable_O2_rsc: 
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temperature_O2)
         pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
         pressure_O2 = pressure_O2-pressure_offset_O2
-        rho_O2 = 1.292*(273.15/(273.15+temperature_O2)) # In kg/m3
+        rho_O2 = rho0_O2*(273.15/(273.15+temperature_O2)) # In kg/m3
         vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((float(A1_O2)/float(A2_O2))**2-1)))
         flow_O2 = A1_O2*vel_O2
 
@@ -1202,3 +1190,27 @@ while True:
         vol_O2 = 0
         inspi_end = False
     count = count+1
+
+print('Exiting...')
+time.sleep(0.1)
+valve_air_val = 0
+valve_O2_val = 0
+if enable_pigpio:
+    pi.set_PWM_dutycycle(valve_air_pin, int(min(255, max(0, 255*valve_air_val/100))))
+    pi.set_PWM_dutycycle(valve_O2_pin, int(min(255, max(0, 255*valve_O2_val/100))))
+else:
+    # Hardware PWM for air and O2 proportional valves
+    pwm0_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm0/duty_cycle'
+    pwm1_cmd = 'echo {} > /sys/class/pwm/pwmchip0/pwm1/duty_cycle'
+    if not disable_hard_pwm:
+        os.system(pwm0_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_air_val/100)))))
+        os.system(pwm1_cmd.format(math.trunc(min(pwm_period, max(0, pwm_period*valve_O2_val/100)))))
+valve_inspi_val = GPIO.HIGH
+GPIO.output(valve_inspi_pin, valve_inspi_val)
+valve_expi_val = 100
+if enable_pigpio:
+    pi.set_PWM_dutycycle(valve_expi_pin, int(min(255, max(0, 255-255*valve_expi_val/100))))
+else:
+    valve_expi_pwm.ChangeDutyCycle(int(100-valve_expi_val))
+time.sleep(0.1)
+sys.exit(0)

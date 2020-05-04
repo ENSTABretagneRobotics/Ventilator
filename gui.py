@@ -80,18 +80,15 @@ plt3 = win.addPlot(row = 0, col = 2)
 plt4 = win.addPlot(row = 1, col = 2)
 plt5 = win.addPlot(row = 2, col = 2)
 plt6 = win.addPlot(row = 3, col = 2)
+win.move(0, 0)
+win.resize(800, 420)
 if debug: 
-    win.move(0, 0)
-    win.resize(800, 420)
     plt.show()
     plt2.show()
     plt3.hide()
     plt4.hide()
     plt5.hide()
 else:
-    # Unexpected coordinates...
-    win.move(-10, -10)
-    win.resize(808, 474)
     plt.hide()
     plt2.hide()
     plt3.show()
@@ -211,6 +208,8 @@ while True:
 
 file.seek(0, os.SEEK_END)
 
+debug_prev = -1
+mode_prev = -1
 bExit = 0
 #count = 0
 while (bExit != 1):
@@ -396,27 +395,28 @@ while (bExit != 1):
                             else:
                                 wintitle = 'PE dec.: {:d}% Fl. E A: {:d}% Fl. E O: {:d}% P I dlta: {:.1f} V I dlta: {:d}mL I dlta: {:d}ms Fl. th.: {:.2f}'
                                 win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
-                            if ((alarms != 0) and ((int(t_t0) % 2) == 0)):
-                                wintitle = 'Alarm 0x{:04X} : '
-                                if ((alarms & HARDWARE_ALARM) > 0):
-                                    wintitle = wintitle+'Check sensors, '
-                                if ((alarms & OS_ALARM) > 0):
-                                    wintitle = wintitle+'Restart or check SD, '
-                                if ((alarms & PRESSURE_ALARM) > 0):
-                                    wintitle = wintitle+'Pressure too low or high, '
-                                if ((alarms & FLOW_ALARM) > 0):
-                                    wintitle = wintitle+'Flow too low or high, '
-                                if ((alarms & VOL_ALARM) > 0):
-                                    wintitle = wintitle+'Volume too low or high, '
-                                if ((alarms & PPEAK_ALARM) > 0):
-                                    wintitle = wintitle+'Ppeak not reached, '
-                                if ((alarms & PEEP_ALARM) > 0):
-                                    wintitle = wintitle+'PEEP not reached, '
-                                wintitle = wintitle[:-2]
-                                win.setWindowTitle(wintitle.format(int(alarms)))
-                        if debug: 
-                            win.move(-4, 4)
-                            win.resize(800, 420)
+                        if ((alarms != 0) and ((int(t_t0) % 2) == 0)):
+                            wintitle = 'Alarm 0x{:04X} : '
+                            if ((alarms & HARDWARE_ALARM) > 0):
+                                wintitle = wintitle+'Check sensors, '
+                            if ((alarms & OS_ALARM) > 0):
+                                wintitle = wintitle+'Restart or check SD, '
+                            if ((alarms & PRESSURE_ALARM) > 0):
+                                wintitle = wintitle+'Pressure too low or high, '
+                            if ((alarms & FLOW_ALARM) > 0):
+                                wintitle = wintitle+'Flow too low or high, '
+                            if ((alarms & VOL_ALARM) > 0):
+                                wintitle = wintitle+'Volume too low or high, '
+                            if ((alarms & PPEAK_ALARM) > 0):
+                                wintitle = wintitle+'Ppeak not reached, '
+                            if ((alarms & PEEP_ALARM) > 0):
+                                wintitle = wintitle+'PEEP not reached, '
+                            wintitle = wintitle[:-2]
+                            win.setWindowTitle(wintitle.format(int(alarms)))
+                        if debug:
+                            if (debug_prev != debug):
+                                win.move(-4, 4)
+                                win.resize(800, 420)
                             plt.setTitle('Temp. I: {:.2f} C, Temp. E: {:.2f} C'.format(temperature, temperature_e))
                             plt2.setTitle('Temp. A: {:.2f}, E: {:.2f}, O: {:.2f}'.format(temperature_air, temperature_expi, temperature_O2))
                             plt.show()
@@ -426,8 +426,9 @@ while (bExit != 1):
                             plt5.hide()
                             plt6.hide()
                         else:
-                            win.move(-10, -32)
-                            win.resize(808, 452)
+                            if (debug_prev != debug):
+                                win.move(-10, -32)
+                                win.resize(808, 452)
                             plt.hide()
                             plt2.hide()
                             plt3.show()
@@ -439,6 +440,9 @@ while (bExit != 1):
                                 plt4.show()
                                 plt5.show()
                                 plt6.hide()
+
+                        debug_prev = debug
+                        mode_prev = mode
 
                         # Should ensure that no ValueError exception can happen here to avoid lists of different length, 
                         # so no float conversion should be done in the append()...
