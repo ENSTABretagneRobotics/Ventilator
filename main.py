@@ -29,7 +29,7 @@ from common import *
 # digital input UP button, 17 for digital input DOWN button, 18, 19, 20, 21, 27
 # for SPI6 Honeywell RSC for flow (expiration), 22, 23 for Honeywell HSC 
 # (expiration), I2C6 Bar02 (room), touchscreen, RTC clock, 24 for digital input
-# SELECT button, 25 for POWER button), 26 for software PWM buzzer :
+# SELECT button, 25 for POWER button, 26 for software PWM buzzer)
 #sudo nano /boot/config.txt
 # Add/modify in /boot/config.txt (SPI6 might appear as 4, check /dev...)
 #enable_uart=0
@@ -42,6 +42,10 @@ from common import *
 #dtoverlay=spi3-2cs,cs0_pin=14,cs1_pin=15
 #dtoverlay=spi6-2cs
 #dtoverlay=gpio-shutdown,gpio_pin=25,active_low=1,gpio_pull=up
+# Disable touch screen sleep (see https://www.raspberrypi.org/forums/viewtopic.php?t=255163)
+#sudo nano /etc/xdg/lxsession/LXDE-pi/autostart
+#@xset s off
+#@xset -dpms
 # Then reboot and
 #sudo -E python main.py & python gui.py
 
@@ -57,8 +61,8 @@ PEEP = 5 # In mbar (= approx. cmH2O)
 respi_rate = 20 # In breaths/min
 inspi_ratio = 0.3
 # User advanced parameters
-PEEP_dec_rate = 60 # In %, to limit the maximum expiration flow before reaching the PEEP
-PEEP_tuning = 40 # In %, to tune the expiration flow when maintaining the PEEP
+PEEP_dec_rate = 100 # In %, to limit the maximum expiration flow before reaching the PEEP
+PEEP_tuning = 1 # In %, to tune the expiration flow when maintaining the PEEP
 Fl_PEEP_air = 100 # In % of flow_control_air, to help detecting inspiration after reaching the PEEP
 Fl_PEEP_O2 = 100 # In % of flow_control_O2, to help detecting inspiration after reaching the PEEP
 PEEP_inspi_detection_delta = 2.5 # In mbar (= approx. cmH2O)
@@ -171,15 +175,15 @@ coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.0
 positive_filter_flow = True
 err_pressure_PEEP_thresh = 0.5 # In mbar (= approx. cmH2O)
-coef_PEEP_pressure_control_valve_expi = 1.0
+coef_PEEP_pressure_control_valve_expi = 2.0
 coef_PEEP_flow_control_valve_expi = 0.0
 coef_PEEP_pressure_control_valve_air = 0.0
 coef_PEEP_pressure_control_valve_O2 = 0.0
 disable_PEEP_pressure_excess_control = False
-coef_PEEP_pressure_excess_control_valve_air = 16.0
-coef_PEEP_pressure_excess_control_valve_O2 = 16.0
-coef_PEEP_flow_control_valve_air = 2.0
-coef_PEEP_flow_control_valve_O2 = 2.0
+coef_PEEP_pressure_excess_control_valve_air = 8.0
+coef_PEEP_pressure_excess_control_valve_O2 = 8.0
+coef_PEEP_flow_control_valve_air = 1.0
+coef_PEEP_flow_control_valve_O2 = 1.0
 coef_depress_flow_control_valve_air = 4.0
 coef_pressure_excess_control_valve_air = 16.0
 coef_pressure_excess_control_valve_O2 = 16.0
@@ -1175,9 +1179,12 @@ while (not bExit):
         temperature = p_ms5837.temperature()
     elif enable_p_inspi_hsc:
         p = p0+p_diff_inspi_hsc
+        #p = p0+p_diff_inspi_hsc+0.01*0.5*rho_air*((flow_filtered_air+flow_filtered_O2)/A1_air)**2
         temperature = temp_inspi_hsc
     if enable_p_expi_hsc:
         p_e = p0+p_diff_expi_hsc
+        #p_e = p0+p_diff_expi_hsc+0.01*0.5*rho_air*(vel_expi)**2
+        #print(('%f %f') % (0.01*0.5*rho_air*(vel_expi)**2, vel_expi))
         temperature_e = temp_expi_hsc
     if (t-t_cycle_start > cycle_duration) or force_new_cycle:
         force_new_cycle = False
