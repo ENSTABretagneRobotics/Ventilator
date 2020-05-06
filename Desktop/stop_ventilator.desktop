@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Stop Ventilator
+GenericName=Stop Ventilator
+Exec=bash -c "sudo killall -INT python3; sudo killall bash; sleep 1; sudo killall bash python3"
+Terminal=True

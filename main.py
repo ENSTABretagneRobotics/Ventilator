@@ -168,8 +168,8 @@ valves_init = 50
 valves_closed = 10
 valves_delay = 0.020 # In s
 PEEP_err = 2.0 # In mbar (= approx. cmH2O)
-P_err = 50 # 7.5 # In mbar (= approx. cmH2O)
-P_absolute_min = -5 # In mbar (= approx. cmH2O)
+P_err = 10 # In mbar (= approx. cmH2O)
+P_absolute_min = -10 # In mbar (= approx. cmH2O)
 P_absolute_max = 155 # In mbar (= approx. cmH2O)
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.0
@@ -197,13 +197,6 @@ alarms = 0
 GPIO.setwarnings(False)	
 GPIO.setmode(GPIO.BCM)
 
-# Software PWM init for buzzer
-if enable_buzzer:
-    buz_pin = 26
-    GPIO.setup(buz_pin, GPIO.OUT)
-    buz_pwm = GPIO.PWM(buz_pin, 4000)
-    buz_pwm.start(50) # Startup beep...
-
 if enable_pigpio: 
     os.system('pigpiod -x 0x0FFFFFFF') # To be able to use GPIO 0 and 1 also...
     time.sleep(0.2)
@@ -213,6 +206,18 @@ if enable_pigpio:
        print('Unable to connect to pigpio')
        exit(1)
     print('pigpio connected')
+
+# Software PWM init for buzzer
+if enable_buzzer:
+    buz_pin = 26
+    if enable_pigpio:
+        pi.set_mode(buz_pin, pigpio.OUTPUT)
+        pi.set_PWM_frequency(buz_pin, 4000)
+        pi.set_PWM_dutycycle(buz_pin, 128) # Startup beep...
+    else:
+        GPIO.setup(buz_pin, GPIO.OUT)
+        buz_pwm = GPIO.PWM(buz_pin, 4000)
+        buz_pwm.start(50) # Startup beep...
 
 # Other PWM init
 valve_air_pin = 12
@@ -557,7 +562,11 @@ t_valve_expi_closed = t0
 t_alarms = t0
 
 # Stop the startup beep
-if enable_buzzer: buz_pwm.ChangeDutyCycle(0)
+if enable_buzzer: 
+    if enable_pigpio:
+        pi.set_PWM_dutycycle(buz_pin, 0)
+    else:
+        buz_pwm.ChangeDutyCycle(0)
 
 # File errors are not critical...
 try:
@@ -688,32 +697,40 @@ while (not bExit):
         valve_expi_val = 100
 
     # Pressure should never be too low or too high...
-    #if (((p-p0 > Ppeak+P_err) or (p-p0 < PEEP-P_err) or (p-p0 > P_absolute_max) or (p-p0 < P_absolute_min)) or \
-    #    ((enable_p_expi_hsc) and ((p_e-p0 > Ppeak+P_err) or (p_e-p0 < PEEP-P_err) or (p_e-p0 > P_absolute_max) or (p_e-p0 < P_absolute_min)))): 
-    #    if enable_alarms:
-    #        t_alarms = t
-    #        alarms = alarms | PRESSURE_ALARM
-    #    valve_air_val = 0
-    #    valve_O2_val = 0
-    #    valve_inspi_val = GPIO.HIGH
-    #    valve_expi_val = 100
+    if (((p-p0 > Ppeak+P_err) or (p-p0 > P_absolute_max) or (p-p0 < P_absolute_min)) or \
+        ((enable_p_expi_hsc) and ((p_e-p0 > Ppeak+P_err) or (p_e-p0 > P_absolute_max) or (p_e-p0 < P_absolute_min)))): 
+        if enable_alarms:
+            t_alarms = t
+            alarms = alarms | PRESSURE_ALARM
+        valve_air_val = 0
+        valve_O2_val = 0
+        valve_inspi_val = GPIO.HIGH
+        valve_expi_val = 100
 
-    #if (mode != 2):
-    #    if ((t-t_cycle_start > 0.9*inspi_duration) and (not Ppeak_reached)):
-    #        if enable_alarms:
-    #            t_alarms = t
-    #            alarms = alarms | PPEAK_ALARM
-    #    if ((t-t_cycle_start > inspi_duration+0.9*expi_duration) and (not PEEP_reached)):
-    #        if enable_alarms:
-    #            t_alarms = t
-    #            alarms = alarms | PEEP_ALARM
+    if (mode != 2):
+        if ((inspi_duration-2*dt <= t-t_cycle_start) and (t-t_cycle_start <= inspi_duration) and (not Ppeak_reached)):
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | PPEAK_ALARM
+        if ((inspi_duration+expi_duration-2*dt <= t-t_cycle_start) and (t-t_cycle_start <= inspi_duration+expi_duration) and (not PEEP_reached)):
+            if enable_alarms:
+                t_alarms = t
+                alarms = alarms | PEEP_ALARM
 
     if (alarms != 0):
         if (t-t_alarms > 5): # Clear alarms and stop buzzer after some time if no recent alarm
             alarms = 0
-            if enable_buzzer: buz_pwm.ChangeDutyCycle(0)
+            if enable_buzzer: 
+                if enable_pigpio:
+                    pi.set_PWM_dutycycle(buz_pin, 0)
+                else:
+                    buz_pwm.ChangeDutyCycle(0)
         else:
-            if enable_buzzer: buz_pwm.ChangeDutyCycle(50)
+            if enable_buzzer: 
+                if enable_pigpio:
+                    pi.set_PWM_dutycycle(buz_pin, 128)
+                else:
+                    buz_pwm.ChangeDutyCycle(50)
 
     # Actuators
     valve_air_val = min(100, max(0, valve_air_val))
@@ -1239,5 +1256,10 @@ if enable_pigpio:
     pi.set_PWM_dutycycle(valve_expi_pin, int(min(255, max(0, 255-255*valve_expi_val/100))))
 else:
     valve_expi_pwm.ChangeDutyCycle(int(100-valve_expi_val))
+if enable_buzzer: 
+    if enable_pigpio:
+        pi.set_PWM_dutycycle(buz_pin, 0)
+    else:
+        buz_pwm.ChangeDutyCycle(0)
 time.sleep(0.1)
 sys.exit(0)

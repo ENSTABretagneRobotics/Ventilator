@@ -185,17 +185,17 @@ for item in plt6.legend.items:
 if (scaley != 0): 
     plt.enableAutoRange('y', False)
     plt.setYRange(-scaley+offsety, scaley+offsety, 0)
-    plt3.enableAutoRange('y', False)
-    plt3.setYRange(-scaley+offsety, scaley+offsety, 0)
+    #plt3.enableAutoRange('y', False)
+    #plt3.setYRange(-scaley+offsety, scaley+offsety, 0)
 if (scale2y != 0): 
     plt2.enableAutoRange('y', False)
     plt2.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
-    plt4.enableAutoRange('y', False)
-    plt4.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
-    plt5.enableAutoRange('y', False)
-    plt5.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
-    plt6.enableAutoRange('y', False)
-    plt6.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    #plt4.enableAutoRange('y', False)
+    #plt4.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    #plt5.enableAutoRange('y', False)
+    #plt5.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    #plt6.enableAutoRange('y', False)
+    #plt6.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
 
 # Waiting for the file to be created...
 while True:

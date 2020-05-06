@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Ventilator
+GenericName=Ventilator
+Exec=bash -c "cd ~/Share; sudo rm -Rf data.csv; sudo -E python3 main.py & python3 gui.py"
+Terminal=True
