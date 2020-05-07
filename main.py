@@ -185,6 +185,13 @@ coef_PEEP_pressure_excess_control_valve_O2 = 8.0
 coef_PEEP_flow_control_valve_air = 1.0
 coef_PEEP_flow_control_valve_O2 = 1.0
 coef_depress_flow_control_valve_air = 4.0
+test_alternate_pressure_excess = True
+flow_control_air_PEEP_pressure_excess = flow_control_air*Fl_PEEP_air*0.01
+flow_control_O2_PEEP_pressure_excess = flow_control_O2*Fl_PEEP_O2*0.01
+flow_control_air_pressure_excess = flow_control_air
+flow_control_O2_pressure_excess = flow_control_O2
+coef_pressure_excess_air = 4.0
+coef_pressure_excess_O2 = 4.0
 coef_pressure_excess_control_valve_air = 16.0
 coef_pressure_excess_control_valve_O2 = 16.0
 coef_flow_control_valve_air = 2.0
@@ -647,20 +654,32 @@ while (not bExit):
                     valve_expi_val_max_PEEP = max(PEEP_tuning, min(PEEP_dec_rate, valve_expi_val_max_PEEP+coef_PEEP_pressure_control_valve_expi*dt*err_pressure_PEEP+coef_PEEP_flow_control_valve_expi*dt*(err_flow_PEEP_air+err_flow_PEEP_O2)))
                 valve_expi_val = valve_expi_val_max_PEEP
             if (flow_control_air*Fl_PEEP_air*0.01 > 0):
-                if ((not disable_PEEP_pressure_excess_control) and (err_pressure_PEEP > 0)): # Control to limit the flow to stay below PEEP
-                    valve_air_val_max_PEEP = max(1, min(100, valve_air_val_max_PEEP-coef_PEEP_pressure_excess_control_valve_air*(flow_control_air*Fl_PEEP_air*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
-                else:
+                if test_alternate_pressure_excess:
+                    flow_control_air_PEEP_pressure_excess = max(0, min(flow_control_air*Fl_PEEP_air*0.01, flow_control_air_PEEP_pressure_excess-coef_pressure_excess_air*(flow_control_air*Fl_PEEP_air*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP))
+                    err_flow_PEEP_air = flow_control_air_PEEP_pressure_excess-flow_filtered_air*60000.0 # In L/min
                     if ((err_flow_PEEP_air < 0) or (t-t_valve_air_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
                         valve_air_val_max_PEEP = max(1, min(100, valve_air_val_max_PEEP+coef_PEEP_flow_control_valve_air*dt*err_flow_PEEP_air-coef_PEEP_pressure_control_valve_air*(flow_control_air*Fl_PEEP_air*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
+                else:
+                    if ((not disable_PEEP_pressure_excess_control) and (err_pressure_PEEP > 0)): # Control to limit the flow to stay below PEEP
+                        valve_air_val_max_PEEP = max(1, min(100, valve_air_val_max_PEEP-coef_PEEP_pressure_excess_control_valve_air*(flow_control_air*Fl_PEEP_air*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
+                    else:
+                        if ((err_flow_PEEP_air < 0) or (t-t_valve_air_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
+                            valve_air_val_max_PEEP = max(1, min(100, valve_air_val_max_PEEP+coef_PEEP_flow_control_valve_air*dt*err_flow_PEEP_air-coef_PEEP_pressure_control_valve_air*(flow_control_air*Fl_PEEP_air*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
                 valve_air_val = valve_air_val_max_PEEP
             else:
                 valve_air_val = 0
             if (flow_control_O2*Fl_PEEP_O2*0.01 > 0):
-                if ((not disable_PEEP_pressure_excess_control) and (err_pressure_PEEP > 0)): # Control to limit the flow to stay below PEEP
-                    valve_O2_val_max_PEEP = max(1, min(100, valve_O2_val_max_PEEP-coef_PEEP_pressure_excess_control_valve_O2*(flow_control_O2*Fl_PEEP_O2*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
-                else:
+                if test_alternate_pressure_excess:
+                    flow_control_O2_PEEP_pressure_excess = max(0, min(flow_control_O2*Fl_PEEP_O2*0.01, flow_control_O2_PEEP_pressure_excess-coef_pressure_excess_O2*(flow_control_O2*Fl_PEEP_O2*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP))
+                    err_flow_PEEP_O2 = flow_control_O2_PEEP_pressure_excess-flow_filtered_O2*60000.0 # In L/min
                     if ((err_flow_PEEP_O2 < 0) or (t-t_valve_O2_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
                         valve_O2_val_max_PEEP = max(1, min(100, valve_O2_val_max_PEEP+coef_PEEP_flow_control_valve_O2*dt*err_flow_PEEP_O2-coef_PEEP_pressure_control_valve_O2*(flow_control_O2*Fl_PEEP_O2*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
+                else:
+                    if ((not disable_PEEP_pressure_excess_control) and (err_pressure_PEEP > 0)): # Control to limit the flow to stay below PEEP
+                        valve_O2_val_max_PEEP = max(1, min(100, valve_O2_val_max_PEEP-coef_PEEP_pressure_excess_control_valve_O2*(flow_control_O2*Fl_PEEP_O2*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
+                    else:
+                        if ((err_flow_PEEP_O2 < 0) or (t-t_valve_O2_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
+                            valve_O2_val_max_PEEP = max(1, min(100, valve_O2_val_max_PEEP+coef_PEEP_flow_control_valve_O2*dt*err_flow_PEEP_O2-coef_PEEP_pressure_control_valve_O2*(flow_control_O2*Fl_PEEP_O2*0.01/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_PEEP)) # Min > 0 to not always disable proportional valves control...
                 valve_O2_val = valve_O2_val_max_PEEP
             else:
                 valve_O2_val = 0
@@ -1128,26 +1147,42 @@ while (not bExit):
         valve_air_val_max = 1 # Min > 0 to not always disable proportional valves control...
     elif (flow_control_air < flow_control_air_max):
         err_pressure_excess = (p-p0)-Ppeak
-        if (err_pressure_excess > 0): # Control to limit the flow to stay below Ppeak
-            valve_air_val_max = max(1, min(100, valve_air_val_max-coef_pressure_excess_control_valve_air*(float(flow_control_air)/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
-        else:
+        if test_alternate_pressure_excess:
             if ((valve_air_val > 0) and ((mode == 2) or (t-t_cycle_start < inspi_duration))): # Proportional valve control
-                err_flow_air = flow_control_air-flow_filtered_air*60000.0 # In L/min
+                flow_control_air_pressure_excess = max(0, min(flow_control_air, flow_control_air_pressure_excess-coef_pressure_excess_air*(float(flow_control_air)/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_excess))
+                err_flow_air = flow_control_air_pressure_excess-flow_filtered_air*60000.0 # In L/min
                 if ((err_flow_air < 0) or (t-t_valve_air_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
                     valve_air_val_max = max(1, min(100, valve_air_val_max+coef_flow_control_valve_air*dt*err_flow_air)) # Min > 0 to not always disable proportional valves control...
+        else:
+            # Should be instead inside the condition below...?
+            if (err_pressure_excess > 0): # Control to limit the flow to stay below Ppeak
+                valve_air_val_max = max(1, min(100, valve_air_val_max-coef_pressure_excess_control_valve_air*(float(flow_control_air)/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
+            else:
+                if ((valve_air_val > 0) and ((mode == 2) or (t-t_cycle_start < inspi_duration))): # Proportional valve control
+                    err_flow_air = flow_control_air-flow_filtered_air*60000.0 # In L/min
+                    if ((err_flow_air < 0) or (t-t_valve_air_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
+                        valve_air_val_max = max(1, min(100, valve_air_val_max+coef_flow_control_valve_air*dt*err_flow_air)) # Min > 0 to not always disable proportional valves control...
     else:
         valve_air_val_max = 100
     if (flow_control_O2 <= 0):
         valve_O2_val_max = 1 # Min > 0 to not always disable proportional valves control...
     elif (flow_control_O2 < flow_control_O2_max):
         err_pressure_excess = (p-p0)-Ppeak
-        if (err_pressure_excess > 0): # Control to limit the flow to stay below Ppeak
-            valve_O2_val_max =  max(1, min(100, valve_O2_val_max-coef_pressure_excess_control_valve_O2*(float(flow_control_O2)/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
-        else:
+        if test_alternate_pressure_excess:
             if ((valve_O2_val > 0) and ((mode == 2) or (t-t_cycle_start < inspi_duration))): # Proportional valve control
-                err_flow_O2 = flow_control_O2-flow_filtered_O2*60000.0 # In L/min
+                flow_control_O2_pressure_excess = max(0, min(flow_control_O2, flow_control_O2_pressure_excess-coef_pressure_excess_O2*(float(flow_control_O2)/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_excess))
+                err_flow_O2 = flow_control_O2_pressure_excess-flow_filtered_O2*60000.0 # In L/min
                 if ((err_flow_O2 < 0) or (t-t_valve_O2_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
                     valve_O2_val_max = max(1, min(100, valve_O2_val_max+coef_flow_control_valve_O2*dt*err_flow_O2)) # Min > 0 to not always disable proportional valves control...
+        else:
+            # Should be instead inside the condition below...?
+            if (err_pressure_excess > 0): # Control to limit the flow to stay below Ppeak
+                valve_O2_val_max =  max(1, min(100, valve_O2_val_max-coef_pressure_excess_control_valve_O2*(float(flow_control_O2)/float(max(flow_control_air_max, flow_control_O2_max)))*dt*err_pressure_excess)) # Min > 0 to not always disable proportional valves control...
+            else:
+                if ((valve_O2_val > 0) and ((mode == 2) or (t-t_cycle_start < inspi_duration))): # Proportional valve control
+                    err_flow_O2 = flow_control_O2-flow_filtered_O2*60000.0 # In L/min
+                    if ((err_flow_O2 < 0) or (t-t_valve_O2_closed > valves_delay)): # Avoid accumulating error when flow is 0 just due to valve delay...
+                        valve_O2_val_max = max(1, min(100, valve_O2_val_max+coef_flow_control_valve_O2*dt*err_flow_O2)) # Min > 0 to not always disable proportional valves control...
     else:
         valve_O2_val_max = 100
 
