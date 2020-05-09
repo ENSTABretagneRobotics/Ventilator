@@ -62,7 +62,7 @@ respi_rate = 20 # In breaths/min
 inspi_ratio = 0.3
 # User advanced parameters
 PEEP_dec_rate = 100 # In %, to limit the maximum expiration flow before reaching the PEEP
-PEEP_tuning = 1 # In %, to tune the expiration flow when maintaining the PEEP
+PEEP_tuning = 40 # In %, to tune the expiration flow when maintaining the PEEP
 Fl_PEEP_air = 100 # In % of flow_control_air, to help detecting inspiration after reaching the PEEP
 Fl_PEEP_O2 = 100 # In % of flow_control_O2, to help detecting inspiration after reaching the PEEP
 PEEP_inspi_detection_delta = 2.5 # In mbar (= approx. cmH2O)
@@ -168,9 +168,9 @@ valves_init = 50
 valves_closed = 10
 valves_delay = 0.020 # In s
 PEEP_err = 2.0 # In mbar (= approx. cmH2O)
-P_err = 10 # In mbar (= approx. cmH2O)
+P_err = 50 # In mbar (= approx. cmH2O)
 P_absolute_min = -10 # In mbar (= approx. cmH2O)
-P_absolute_max = 155 # In mbar (= approx. cmH2O)
+P_absolute_max = 159 # In mbar (= approx. cmH2O)
 coef_offset_filter_flow = 0.99
 coef_filter_flow = 0.0
 positive_filter_flow = True

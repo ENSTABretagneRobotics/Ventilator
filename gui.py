@@ -194,8 +194,8 @@ if (scale2y != 0):
     #plt4.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
     #plt5.enableAutoRange('y', False)
     #plt5.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
-    #plt6.enableAutoRange('y', False)
-    #plt6.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    plt6.enableAutoRange('y', False)
+    plt6.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
 
 # Waiting for the file to be created...
 while True:
@@ -385,7 +385,7 @@ while (bExit != 1):
                             wintitle = '[PI dlta: {:.1f}]'
                             win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
                         elif (select == 13): 
-                            wintitle = '[VI dlta: {:d}mL]'
+                            wintitle = '[VI dlta: {:d}ml]'
                             win.setWindowTitle(wintitle.format(int(vol_inspi_detection_delta)))
                         elif (select == 14): 
                             wintitle = '[I dlta: {:d}ms]'
@@ -398,7 +398,7 @@ while (bExit != 1):
                                 wintitle = 'Mode: {:d} Flow A: {:d} Flow O: {:d} Flow E: {:d} Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f}'
                                 win.setWindowTitle(wintitle.format(int(mode), int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio))
                             else:
-                                wintitle = 'PE d: {:d}% PE t: {:d}% FEA: {:d}% FEO: {:d}% PI dlta: {:.1f} VI dlta: {:d}mL I dlta: {:d}ms F th: {:.2f}'
+                                wintitle = 'PE d: {:d}% PE t: {:d}% FEA: {:d}% FEO: {:d}% PI dlta: {:.1f} VI dlta: {:d}ml I dlta: {:d}ms F th: {:.2f}'
                                 win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(PEEP_tuning), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
                         if ((alarms != 0) and ((int(t_t0) % 2) == 0)):
                             wintitle = 'Alarm 0x{:04X} : '
