@@ -19,6 +19,8 @@ scaley = 50
 offsety = 30
 scale2y = 100
 offset2y = 20
+scale6y = 100
+offset6y = 80
 debug = False
 ###############################################################################
 
@@ -141,7 +143,9 @@ c2_Ppeak = plt3.plot(t_plot, Ppeak_plot, pen = '#FFFFFF')
 c_PEEP = plt.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
 c2_PEEP = plt3.plot(t_plot, PEEP_plot, pen = '#AAAAAA')
 c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
+c2_flow_control_air = plt6.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
 c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
+c2_flow_control_O2 = plt6.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
 c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
 c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
 c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
@@ -195,7 +199,7 @@ if (scale2y != 0):
     #plt5.enableAutoRange('y', False)
     #plt5.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
     plt6.enableAutoRange('y', False)
-    plt6.setYRange(-scale2y+offset2y, scale2y+offset2y, 0)
+    plt6.setYRange(-scale6y+offset6y, scale6y+offset6y, 0)
 
 # Waiting for the file to be created...
 while True:
@@ -509,7 +513,9 @@ while (bExit != 1):
     c_PEEP.setData(t_plot, PEEP_plot)
     c2_PEEP.setData(t_plot, PEEP_plot)
     c_flow_control_air.setData(t_plot, flow_control_air_plot)
+    c2_flow_control_air.setData(t_plot, flow_control_air_plot)
     c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
+    c2_flow_control_O2.setData(t_plot, flow_control_O2_plot)
     c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
     c_valve_air.setData(t_plot, valve_air_plot)
     c_valve_O2.setData(t_plot, valve_O2_plot)
