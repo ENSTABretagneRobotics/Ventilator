@@ -6,6 +6,7 @@ import sys
 import os
 import time
 import threading
+import signal
 from timeit import default_timer as timer
 import numpy
 import pyqtgraph as pg
@@ -24,7 +25,7 @@ offset6y = 80
 debug = False
 ###############################################################################
 
-nb_cols = 47 # Not counting the final '\n'
+nb_cols = 46 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -34,10 +35,8 @@ Ppeak_plot = [0]
 PEEP_plot = [0]
 flow_control_air_plot = [0]
 flow_control_O2_plot = [0]
-flow_control_expi_plot = [0]
 valve_air_plot = [0]
 valve_O2_plot = [0]
-valve_inspi_plot = [0]
 valve_expi_plot = [0]
 flow_air_plot = [0]
 flow_expi_plot = [0]
@@ -60,7 +59,7 @@ class GUIWindow(pg.GraphicsWindow):
         global bExit
         #ev.ignore()
         ev.accept() # let the window close
-        bExit = 1
+        bExit = True
 
 def keyPressed(evt):
     # Global variables to share with other functions.
@@ -68,7 +67,7 @@ def keyPressed(evt):
     #print("Key pressed")
     #print(evt.key())
     if evt.key() == QtCore.Qt.Key_Escape:
-        bExit = 1
+        bExit = True
     if evt.key() == QtCore.Qt.Key_D:
         debug = not debug
 
@@ -146,10 +145,8 @@ c_flow_control_air = plt2.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
 c2_flow_control_air = plt6.plot(t_plot, flow_control_air_plot, pen = '#AAFF00')
 c_flow_control_O2 = plt2.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
 c2_flow_control_O2 = plt6.plot(t_plot, flow_control_O2_plot, pen = '#00AAFF')
-c_flow_control_expi = plt2.plot(t_plot, flow_control_expi_plot, pen = '#FF00AA')
 c_valve_air = plt.plot(t_plot, valve_air_plot, pen = '#00FF00', name = 'Air valve')
 c_valve_O2 = plt.plot(t_plot, valve_O2_plot, pen = '#0000FF', name = 'O2 valve')
-c_valve_inspi = plt.plot(t_plot, valve_inspi_plot, pen = '#00FFFF', name = 'Inspi. valve')
 c_valve_expi = plt.plot(t_plot, valve_expi_plot, pen = '#FF0000', name = 'Expi. valve')
 c_flow_air = plt2.plot(t_plot, flow_air_plot, pen = '#003000')
 c_flow_expi = plt2.plot(t_plot, flow_expi_plot, pen = '#300000')
@@ -212,11 +209,19 @@ while True:
 
 file.seek(0, os.SEEK_END)
 
+bExit = False
+
+def signal_handler(sig, frame):
+    global bExit
+    #signal.signal(signal.SIGINT, signal.SIG_IGN) # To avoid interruption by other CTRL+C...
+    bExit = True
+
+signal.signal(signal.SIGINT, signal_handler) # To catch CTRL+C
+
 debug_prev = -1
 mode_prev = -1
-bExit = 0
 #count = 0
-while (bExit != 1):
+while (bExit != True):
     start_time = time.time()
 
     try:
@@ -254,7 +259,7 @@ while (bExit != 1):
                         index = index+1
                         flow_control_O2 = int(cols[index])
                         index = index+1
-                        flow_control_expi = int(cols[index])
+                        ramp = int(cols[index])
                         index = index+1
                         Ppeak = int(cols[index])
                         index = index+1
@@ -285,8 +290,6 @@ while (bExit != 1):
                         valve_air = int(cols[index])
                         index = index+1
                         valve_O2 = int(cols[index])
-                        index = index+1
-                        valve_inspi = int(cols[index])
                         index = index+1
                         valve_expi = int(cols[index])
                         index = index+1
@@ -336,10 +339,8 @@ while (bExit != 1):
                             PEEP_plot = [0]
                             flow_control_air_plot = [0]
                             flow_control_O2_plot = [0]
-                            flow_control_expi_plot = [0]
                             valve_air_plot = [0]
                             valve_O2_plot = [0]
-                            valve_inspi_plot = [0]
                             valve_expi_plot = [0]
                             flow_air_plot = [0]
                             flow_expi_plot = [0]
@@ -359,8 +360,8 @@ while (bExit != 1):
                             wintitle = '[Flow O: {:d}]'
                             win.setWindowTitle(wintitle.format(int(flow_control_O2)))
                         elif (select == 3): 
-                            wintitle = '[Flow E: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control_expi)))
+                            wintitle = '[Ramp: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(ramp)))
                         elif (select == 4): 
                             wintitle = '[Ppeak: {:d}]'
                             win.setWindowTitle(wintitle.format(int(Ppeak*1.01972)))
@@ -399,8 +400,8 @@ while (bExit != 1):
                             win.setWindowTitle(wintitle.format(flow_thresh))
                         else: 
                             if ((int(t_t0) % 10) > 5): # Alternate text displayed
-                                wintitle = 'Mode: {:d} Flow A: {:d} Flow O: {:d} Flow E: {:d} Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f}'
-                                win.setWindowTitle(wintitle.format(int(mode), int(flow_control_air), int(flow_control_O2), int(flow_control_expi), int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio))
+                                wintitle = 'Mode: {:d} Flow A: {:d} Flow O: {:d} Ramp: {:d}% Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f}'
+                                win.setWindowTitle(wintitle.format(int(mode), int(flow_control_air), int(flow_control_O2), int(ramp), int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio))
                             else:
                                 wintitle = 'PE d: {:d}% PE t: {:d}% FEA: {:d}% FEO: {:d}% PI dlta: {:.1f} VI dlta: {:d}ml I dlta: {:d}ms F th: {:.2f}'
                                 win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(PEEP_tuning), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
@@ -462,10 +463,8 @@ while (bExit != 1):
                         PEEP_plot.append(PEEP)
                         flow_control_air_plot.append(flow_control_air)
                         flow_control_O2_plot.append(flow_control_O2)
-                        flow_control_expi_plot.append(flow_control_expi)
                         valve_air_plot.append(float(valve_air)/10.0)
                         valve_O2_plot.append(float(valve_O2)/10.0)
-                        valve_inspi_plot.append(10.0*valve_inspi)
                         valve_expi_plot.append(float(valve_expi)/10.0)
                         flow_air_plot.append(flow_air)
                         flow_expi_plot.append(flow_expi)
@@ -483,10 +482,8 @@ while (bExit != 1):
                             PEEP_plot.pop(0)
                             flow_control_air_plot.pop(0)
                             flow_control_O2_plot.pop(0)
-                            flow_control_expi_plot.pop(0)
                             valve_air_plot.pop(0)
                             valve_O2_plot.pop(0)
-                            valve_inspi_plot.pop(0)
                             valve_expi_plot.pop(0)
                             flow_air_plot.pop(0)
                             flow_expi_plot.pop(0)
@@ -516,10 +513,8 @@ while (bExit != 1):
     c2_flow_control_air.setData(t_plot, flow_control_air_plot)
     c_flow_control_O2.setData(t_plot, flow_control_O2_plot)
     c2_flow_control_O2.setData(t_plot, flow_control_O2_plot)
-    c_flow_control_expi.setData(t_plot, flow_control_expi_plot)
     c_valve_air.setData(t_plot, valve_air_plot)
     c_valve_O2.setData(t_plot, valve_O2_plot)
-    c_valve_inspi.setData(t_plot, valve_inspi_plot)
     c_valve_expi.setData(t_plot, valve_expi_plot)
     c_flow_air.setData(t_plot, flow_air_plot)
     c_flow_expi.setData(t_plot, flow_expi_plot)
