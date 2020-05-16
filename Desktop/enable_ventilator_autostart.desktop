@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Enable Ventilator autostart
+GenericName=Enable Ventilator autostart
+Exec=bash -c "sudo cp -Rf ~/Share/.config/autostart/* ~/.config/autostart/"
+Terminal=True

@@ -25,7 +25,7 @@ offset6y = 80
 debug = False
 ###############################################################################
 
-nb_cols = 46 # Not counting the final '\n'
+nb_cols = 44 # Not counting the final '\n'
 delay = 0.025
 
 t_plot = [0]
@@ -284,8 +284,6 @@ while (bExit != True):
                         inspi_detection_delta_duration = int(cols[index])
                         index = index+1
                         flow_thresh = float(cols[index])
-                        index = index+1
-                        index = index+1
                         index = index+1
                         valve_air = int(cols[index])
                         index = index+1

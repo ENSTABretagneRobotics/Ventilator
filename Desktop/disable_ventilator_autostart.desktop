@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Disable Ventilator autostart
+GenericName=Disable Ventilator autostart
+Exec=bash -c "sudo rm -Rf ~/.config/autostart/ventilator*"
+Terminal=True
