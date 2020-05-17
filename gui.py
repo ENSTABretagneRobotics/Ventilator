@@ -255,9 +255,9 @@ while (bExit != True):
                         index = index+1
                         mode = int(cols[index])
                         index = index+1
-                        flow_control_air = int(cols[index])
+                        flow_control = int(cols[index])
                         index = index+1
-                        flow_control_O2 = int(cols[index])
+                        O2_percent = int(cols[index])
                         index = index+1
                         ramp = int(cols[index])
                         index = index+1
@@ -267,15 +267,15 @@ while (bExit != True):
                         index = index+1
                         respi_rate = int(cols[index])
                         index = index+1
-                        inspi_ratio = float(cols[index])
+                        inspi_percent = int(cols[index])
                         index = index+1
                         PEEP_dec_rate = int(cols[index])
                         index = index+1
                         PEEP_tuning = int(cols[index])
                         index = index+1
-                        Fl_PEEP_air = int(cols[index])
+                        Fl_PEEP = int(cols[index])
                         index = index+1
-                        Fl_PEEP_O2 = int(cols[index])
+                        O2_PEEP = int(cols[index])
                         index = index+1
                         PEEP_inspi_detection_delta = float(cols[index])
                         index = index+1
@@ -352,11 +352,11 @@ while (bExit != True):
                             wintitle = '[Mode: {:d}]'
                             win.setWindowTitle(wintitle.format(int(mode)))
                         elif (select == 1): 
-                            wintitle = '[Flow A: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control_air)))
+                            wintitle = '[Flow: {:d}]'
+                            win.setWindowTitle(wintitle.format(int(flow_control)))
                         elif (select == 2): 
-                            wintitle = '[Flow O: {:d}]'
-                            win.setWindowTitle(wintitle.format(int(flow_control_O2)))
+                            wintitle = '[O2: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(O2_percent)))
                         elif (select == 3): 
                             wintitle = '[Ramp: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(ramp)))
@@ -367,11 +367,11 @@ while (bExit != True):
                             wintitle = '[PEEP: {:d}]'
                             win.setWindowTitle(wintitle.format(int(PEEP*1.01972)))
                         elif (select == 6): 
-                            wintitle = '[Respi. rate: {:d}/min]'
+                            wintitle = '[Respi: {:d}/min]'
                             win.setWindowTitle(wintitle.format(int(respi_rate)))
                         elif (select == 7): 
-                            wintitle = '[I:E: {:.2f}]'
-                            win.setWindowTitle(wintitle.format(inspi_ratio))
+                            wintitle = '[I:E: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(inspi_percent)))
                         elif (select == 8): 
                             wintitle = '[PE d: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(PEEP_dec_rate)))
@@ -379,11 +379,11 @@ while (bExit != True):
                             wintitle = '[PE t: {:d}%]'
                             win.setWindowTitle(wintitle.format(int(PEEP_tuning)))
                         elif (select == 10): 
-                            wintitle = '[FEA: {:d}%]'
-                            win.setWindowTitle(wintitle.format(int(Fl_PEEP_air)))
+                            wintitle = '[FE: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(Fl_PEEP)))
                         elif (select == 11): 
-                            wintitle = '[FEO: {:d}%]'
-                            win.setWindowTitle(wintitle.format(int(Fl_PEEP_O2)))
+                            wintitle = '[OE: {:d}%]'
+                            win.setWindowTitle(wintitle.format(int(O2_PEEP)))
                         elif (select == 12): 
                             wintitle = '[PI dlta: {:.1f}]'
                             win.setWindowTitle(wintitle.format(PEEP_inspi_detection_delta*1.01972))
@@ -398,11 +398,11 @@ while (bExit != True):
                             win.setWindowTitle(wintitle.format(flow_thresh))
                         else: 
                             if ((int(t_t0) % 10) > 5): # Alternate text displayed
-                                wintitle = 'Mode: {:d} Flow A: {:d} Flow O: {:d} Ramp: {:d}% Ppeak: {:d} PEEP: {:d} Respi. rate: {:d}/min I:E: {:.2f}'
-                                win.setWindowTitle(wintitle.format(int(mode), int(flow_control_air), int(flow_control_O2), int(ramp), int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), inspi_ratio))
+                                wintitle = 'Mode: {:d} Flow: {:d} O2: {:d}% Ramp: {:d}% Ppeak: {:d} PEEP: {:d} Respi: {:d}/min I:E: {:d}%'
+                                win.setWindowTitle(wintitle.format(int(mode), int(flow_control), int(O2_percent), int(ramp), int(Ppeak*1.01972), int(PEEP*1.01972), int(respi_rate), int(inspi_percent)))
                             else:
-                                wintitle = 'PE d: {:d}% PE t: {:d}% FEA: {:d}% FEO: {:d}% PI dlta: {:.1f} VI dlta: {:d}ml I dlta: {:d}ms F th: {:.2f}'
-                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(PEEP_tuning), int(Fl_PEEP_air), int(Fl_PEEP_O2), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
+                                wintitle = 'PE d: {:d}% PE t: {:d}% FE: {:d}% OE: {:d}% PI dlta: {:.1f} VI dlta: {:d}ml I dlta: {:d}ms F th: {:.2f}'
+                                win.setWindowTitle(wintitle.format(int(PEEP_dec_rate), int(PEEP_tuning), int(Fl_PEEP), int(O2_PEEP), PEEP_inspi_detection_delta*1.01972, int(vol_inspi_detection_delta), int(inspi_detection_delta_duration), flow_thresh))
                         if ((alarms != 0) and ((int(t_t0) % 2) == 0)):
                             wintitle = 'Alarm 0x{:04X} : '
                             if ((alarms & HARDWARE_ALARM) > 0):
@@ -459,8 +459,8 @@ while (bExit != True):
                         p_e_cmh2o_plot.append(p_e_cmh2o)
                         Ppeak_plot.append(Ppeak)
                         PEEP_plot.append(PEEP)
-                        flow_control_air_plot.append(flow_control_air)
-                        flow_control_O2_plot.append(flow_control_O2)
+                        flow_control_air_plot.append(flow_control*max(0.0, 1.0-O2_percent*0.01))
+                        flow_control_O2_plot.append(flow_control*O2_percent*0.01)
                         valve_air_plot.append(float(valve_air)/10.0)
                         valve_O2_plot.append(float(valve_O2)/10.0)
                         valve_expi_plot.append(float(valve_expi)/10.0)
