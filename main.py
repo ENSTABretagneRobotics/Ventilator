@@ -20,14 +20,14 @@ from common import *
 #sudo pip install spidev
 #sudo pip install pyqtgraph
 # if it did not work and/or try also with python3 and pip3.
-# Raspberry Pi 4 configuration (GPIO that will be used : 0 for PWM 
-# expiration valve, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (O2), 4, 5
-# for Honeywell HSC (inspiration) and I2C3 Bar02 (inspiration)[, 6 for digital
+# Raspberry Pi 4 configuration (GPIO that will be used : 0 for PWM expiration 
+# valve, 1, 2, 3, 14, 15 for SPI3 Honeywell RSC for flow (expiration), 4, 5
+# for I2C3 Honeywell HSC (expiration)[, Bar02 (room), 6 for digital
 # output inspiration valve], 7, 8, 9, 10, 11 for SPI0 Honeywell RSC for flow 
 # (air), 12, 13 for PWM O2 and air valves, 16 for 
 # digital input UP button, 17 for digital input DOWN button, 18, 19, 20, 21, 27
-# for SPI6 Honeywell RSC for flow (expiration), 22, 23 for Honeywell HSC 
-# (expiration), I2C6 Bar02 (room), touchscreen, RTC clock, 24 for digital input
+# for SPI6 Honeywell RSC for flow (O2), 22, 23 for I2C6 Honeywell HSC 
+# (inspiration)[, Bar02 (inspiration), RTC clock], 24 for digital input
 # SELECT button, 25 for POWER button, 26 for PWM buzzer)
 #sudo nano /boot/config.txt
 # Add/modify in /boot/config.txt (SPI6 might appear as 4, check /dev...)
@@ -60,7 +60,7 @@ respi_rate = 20 # In breaths/min
 inspi_percent = 33 # Inspiration time in % of cycle time
 # User advanced parameters
 PEEP_dec_rate = 100 # In %, to limit the maximum expiration flow before reaching the PEEP
-PEEP_tuning = 40 # In %, to tune the expiration flow when maintaining the PEEP
+PEEP_tuning = 100 # In %, to tune the expiration flow when maintaining the PEEP
 Fl_PEEP = 100 # In % of flow_control, to help detecting inspiration after reaching the PEEP
 O2_PEEP = 100 # In % of O2_percent, to help detecting inspiration after reaching the PEEP
 PEEP_inspi_detection_delta = 2.5 # In mbar (= approx. cmH2O)
@@ -251,7 +251,7 @@ down_button_val_prev = down_button_val
 
 # Bar02, HSC
 if enable_p_ms5837:
-    p_ms5837 = ms5837.MS5837_02BA(bus = 3)
+    p_ms5837 = ms5837.MS5837_02BA(bus = 6)
     try:
         if not p_ms5837.init():
             print('P sensor could not be initialized')
@@ -266,7 +266,7 @@ if enable_p_ms5837:
             print('P sensor could not be initialized')
             exit(1)
 if enable_p0_ms5837:
-    p0_ms5837 = ms5837.MS5837_02BA(bus = 6)
+    p0_ms5837 = ms5837.MS5837_02BA(bus = 3)
     try:
         if not p0_ms5837.init():
             print('P0 sensor could not be initialized')
@@ -282,23 +282,23 @@ if enable_p0_ms5837:
             exit(1)
 if enable_p_inspi_hsc:
     try:
-        p_inspi_hsc = hsc.HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+        p_inspi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
     except:
         print('HSC I sensor could not be initialized')
         time.sleep(0.1)
         try:
-            p_inspi_hsc = hsc.HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+            p_inspi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
         except:
             print('HSC I sensor could not be initialized')
             exit(1)
 if enable_p_expi_hsc:
     try:
-        p_expi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+        p_expi_hsc = hsc.HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
     except:
         print('HSC E sensor could not be initialized')
         time.sleep(0.1)
         try:
-            p_expi_hsc = hsc.HHSC(bus = 6, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
+            p_expi_hsc = hsc.HHSC(bus = 3, addr = 0x48, min_pressure = -160.0, max_pressure = 160.0, unit = 'mbar', transfer = 'A')
         except:
             print('HSC E sensor could not be initialized')
             exit(1)
