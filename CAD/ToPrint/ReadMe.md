@@ -5,3 +5,5 @@ This folder contains the parts that have to be 3D printed. They are divided into
 - High-definition nozzle diameter: 0.25 mm
 
 ATTENTION: STL files do not show the parts in the correct printing orientation. To know the correct part orientation and printing configurations check 3MF files in CURA slicer.
+
+(CURA slicer is available in https://ultimaker.com/software/ultimaker-cura)
