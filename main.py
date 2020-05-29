@@ -87,7 +87,7 @@ PEEP_step = 1
 PEEP_min = 0
 PEEP_max = 150
 respi_rate_step = 1
-respi_rate_min = 0
+respi_rate_min = 1
 respi_rate_max = 100
 inspi_percent_step = 1
 inspi_percent_min = 0
@@ -143,6 +143,9 @@ R2_expi = 0.010100/2.0 # In m
 R1_O2 = 0.009000/2.0 # In m
 #R2_O2 = 0.011651/2.0 # In m
 R2_O2 = 0.006500/2.0 # In m
+rho_air = rho0_air
+rho_expi = rho0_expi
+rho_O2 = rho0_O2
 A1_air = math.pi*R1_air**2 # In m2
 A2_air = math.pi*R2_air**2 # In m2
 A1_expi = math.pi*R1_expi**2 # In m2
@@ -972,21 +975,21 @@ while (not bExit):
         pressure_air, temperature_air = flow_air_rsc.comp_readings(raw_pressure_air, raw_temperature_air)
         pressure_air = flow_air_rsc.conv_pressure_to_mbar(pressure_air)
         pressure_air = pressure_air-pressure_offset_air
-        rho_air = rho0_air*(273.15/(273.15+temperature_air)) # In kg/m3
+        if (temperature_air > -273.15): rho_air = rho0_air*(273.15/(273.15+temperature_air)) # In kg/m3
         vel_air = np.sign(pressure_air)*math.sqrt(2*(abs(pressure_air)*100.0)/(rho_air*((float(A1_air)/float(A2_air))**2-1)))
         flow_air = A1_air*vel_air
     if enable_expi_rsc: 
         pressure_expi, temperature_expi = flow_expi_rsc.comp_readings(raw_pressure_expi, raw_temperature_expi)
         pressure_expi = flow_expi_rsc.conv_pressure_to_mbar(pressure_expi)
         pressure_expi = pressure_expi-pressure_offset_expi
-        rho_expi = rho0_expi*(273.15/(273.15+temperature_expi)) # In kg/m3
+        if (temperature_expi > -273.15): rho_expi = rho0_expi*(273.15/(273.15+temperature_expi)) # In kg/m3
         vel_expi = np.sign(pressure_expi)*math.sqrt(2*(abs(pressure_expi)*100.0)/(rho_expi*((float(A1_expi)/float(A2_expi))**2-1)))
         flow_expi = A1_expi*vel_expi
     if enable_O2_rsc: 
         pressure_O2, temperature_O2 = flow_O2_rsc.comp_readings(raw_pressure_O2, raw_temperature_O2)
         pressure_O2 = flow_O2_rsc.conv_pressure_to_mbar(pressure_O2)
         pressure_O2 = pressure_O2-pressure_offset_O2
-        rho_O2 = rho0_O2*(273.15/(273.15+temperature_O2)) # In kg/m3
+        if (temperature_O2 > -273.15): rho_O2 = rho0_O2*(273.15/(273.15+temperature_O2)) # In kg/m3
         vel_O2 = np.sign(pressure_O2)*math.sqrt(2*(abs(pressure_O2)*100.0)/(rho_O2*((float(A1_O2)/float(A2_O2))**2-1)))
         flow_O2 = A1_O2*vel_O2
 
